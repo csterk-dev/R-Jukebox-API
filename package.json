@@ -1,0 +1,32 @@
+{
+  "name": "rpiwebmusicplayerapi",
+  "version": "1.0.0",
+  "description": "Backend API for the raspberry pi web music player app",
+  "main": "build/index.js",
+  "scripts": {
+    "build": "yarn tsc",
+    "start": "node build/index.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/csterk-dev/RpiWebMusicPlayerAPI.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/csterk-dev/RpiWebMusicPlayerAPI/issues"
+  },
+  "homepage": "https://github.com/csterk-dev/RpiWebMusicPlayerAPI#readme",
+  "dependencies": {
+    "dotenv": "^16.4.5",
+    "express": "^4.19.1"
+  },
+  "devDependencies": {
+    "@types/express": "^4.17.21",
+    "@types/node": "^20.11.30",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.4.3"
+  }
+}
