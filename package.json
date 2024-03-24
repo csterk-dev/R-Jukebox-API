@@ -6,6 +6,7 @@
   "scripts": {
     "build": "yarn tsc",
     "start": "node build/index.js",
+    "dev": "yarn build && yarn start",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "repository": {
@@ -20,6 +21,7 @@
   },
   "homepage": "https://github.com/csterk-dev/RpiWebMusicPlayerAPI#readme",
   "dependencies": {
+    "body-parser": "^1.20.2",
     "dotenv": "^16.4.5",
     "express": "^4.19.1"
   },
