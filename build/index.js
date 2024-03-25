@@ -13,8 +13,8 @@ dotenv_1.default.config();
  * Constants
  */
 const PORT = process.env.PORT;
-const WINDOWS_PLATFORM = 'win32';
-const MAC_PLATFORM = 'darwin';
+const WINDOWS_PLATFORM = "win32";
+const MAC_PLATFORM = "darwin";
 /*
  * Server setup
  */
@@ -33,13 +33,14 @@ app.get("/", (req, res) => {
 /**
  * Play Route - Opens the provided url in the local
  */
-app.post('/play', (req, res) => {
+app.post("/play", (req, res) => {
     const { url } = req.body;
-    let browserCommand = `chromium-browser ${url}`;
+    // Default: Chromium Browser
+    let browserCommand = "chromium-browser";
     // Check if Chromium is installed
-    (0, child_process_1.exec)('which chromium-browser', (error, stdout) => {
+    (0, child_process_1.exec)("which chromium-browser", (whichError, whichStdout) => {
         // If Chromium is not installed, use alternative browser instead per platform (used testing locally)
-        if (error || !stdout) {
+        if (whichError || !whichStdout) {
             if (osPlatform === WINDOWS_PLATFORM) {
                 browserCommand = "start microsoft-edge";
             }
@@ -55,13 +56,13 @@ app.post('/play', (req, res) => {
         (0, child_process_1.exec)(`${browserCommand} ${url}`, (error, stdout, stderr) => {
             if (error) {
                 console.error(`Error opening browser: ${error.message}`);
-                return res.status(500).json({ error: 'Internal server error' });
+                return res.status(500).json({ error: "Internal server error" });
             }
             if (stderr) {
                 console.error(`stderr: ${stderr}`);
             }
             console.log(`Opened browser with URL: ${url}`);
-            res.json({ status: 'success' });
+            res.json({ status: "success" });
         });
     });
 });
