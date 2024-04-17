@@ -9,6 +9,6 @@ import { Express, Request, Response } from "express";
 export function IsAlive(app: Express, port?: string, platform?: NodeJS.Platform) {
 
   app.get("/", (req: Request, res: Response) => {
-    res.send(`The server is running on port ${port}, on platform ${platform}`);
+    res.status(200).send(`The server is running on port ${port}, on platform ${platform}`);
   });
 }

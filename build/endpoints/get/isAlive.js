@@ -8,7 +8,7 @@ exports.IsAlive = void 0;
  */
 function IsAlive(app, port, platform) {
     app.get("/", (req, res) => {
-        res.send(`The server is running on port ${port}, on platform ${platform}`);
+        res.status(200).send(`The server is running on port ${port}, on platform ${platform}`);
     });
 }
 exports.IsAlive = IsAlive;

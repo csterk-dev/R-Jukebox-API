@@ -1,13 +1,12 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.Play = void 0;
-const constants_1 = require("../../constants");
+exports.Pause = void 0;
 /**
- * Play Video Route - Opens the provided youtube videoId in the browser, if it is not already active.
- * If it is active, it will attempt resume the video.
+ * Pause Video Route - Finds the current youtube videoId in the browser and attempt to pause it.
+ * If no page with the provided videoId is present, will return 404.
  */
-function Play(app, browser) {
-    app.post("/play", async (req, res) => {
+function Pause(app, browser) {
+    app.post("/pause", async (req, res) => {
         const { videoId } = req.body;
         if (!videoId) {
             return res.status(400).json({ message: "No video ID provided" });
@@ -16,42 +15,31 @@ function Play(app, browser) {
             const pages = await browser.pages();
             let currentPage;
             /*
-             * Close any youtube pages that are not already active with the requested videoId.
-             * If the requested videoId is already active, set it to the current page.
+             * Search through all the currently open pages for a page matching the provided videoId.
              */
             if (pages.length > 0) {
-                await Promise.all(pages.map(async (page) => {
+                pages.map(page => {
                     const currentUrl = page.url();
                     if (currentUrl.includes("youtube.com") && currentUrl.includes(`?v=${videoId}`)) {
                         currentPage = page;
                         console.log("Page with existing videoId found");
                     }
-                    else if (currentUrl.includes("youtube.com")) {
-                        await page.close();
-                        console.log(`Closed existing YouTube page: ${currentUrl}`);
-                    }
-                }));
+                });
+            }
+            else {
+                res.status(404).send({ message: "No current pages" });
+                return;
             }
             if (!currentPage) {
-                // Open a new tab and navigate to the URL
-                const url = `${constants_1.YOUTUBE_URL}${videoId}`;
-                currentPage = await browser.newPage();
-                await currentPage.goto(url);
+                res.status(404).send({ message: "No video found" });
+                return;
             }
-            // const lgPlayBtnSelector = ".ytp-large-play-button";
             try {
-                console.log("aaaaaaaa");
                 const playBtnSelector = ".ytp-play-button";
-                // await currentPage.hover(playBtnSelector);
-                console.log("bbbbbbb");
-                // const playButtonNative = document.getElementsByClassName(playBtnSelector);
-                // const playButton = playButtonNative.item(0);
                 const playButton = await currentPage.waitForSelector(playBtnSelector, {
                     visible: true,
                     timeout: 10000 // Attempt to find the selector for 10seconds 
                 }).catch(() => null);
-                console.log("playButton: ", playButton);
-                console.log("cccccccc");
                 // If the play button returns null, then the video is unavailable.
                 if (!playButton) {
                     res.status(404).send({ message: "Video unavailable" });
@@ -63,19 +51,16 @@ function Play(app, browser) {
                  */
                 const outerHTML = await playButton.getProperty("outerHTML");
                 const htmlJsonButton = await outerHTML.jsonValue();
-                console.log("dddddddd");
                 // eslint-disable-next-line quotes
-                if (htmlJsonButton.includes(`data-title-no-tooltip="Play"`)) {
-                    console.log("eeeeee");
+                if (htmlJsonButton.includes(`data-title-no-tooltip="Pause"`)) {
                     await currentPage.keyboard.press("k");
-                    res.status(200).send({ message: "Video started" });
+                    res.status(200).send({ message: "Video paused" });
                     return;
                 }
-                res.status(200).send({ message: "Video already playing" });
+                res.status(200).send({ message: "Video already paused" });
             }
             catch (err) {
-                console.log(err);
-                res.status(500).send({ message: "Something went wrong finding the youtube video" });
+                res.status(500).send({ message: "Something went wrong pausing the youtube video" });
             }
         }
         catch (err) {
@@ -84,4 +69,4 @@ function Play(app, browser) {
         }
     });
 }
-exports.Play = Play;
+exports.Pause = Pause;

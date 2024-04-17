@@ -1,14 +1,13 @@
 import { Browser, Page } from "puppeteer";
 import { Express, Request, Response } from "express";
-import { YOUTUBE_URL } from "../../constants";
 
 
 /**
- * Play Video Route - Opens the provided youtube videoId in the browser, if it is not already active.
- * If it is active, it will attempt resume the video.
+ * Pause Video Route - Finds the current youtube videoId in the browser and attempt to pause it.
+ * If no page with the provided videoId is present, will return 404.
  */
-export function Play(app: Express, browser: Browser) {
-  app.post("/play", async (req: Request, res: Response) => {
+export function Pause(app: Express, browser: Browser) {
+  app.post("/pause", async (req: Request, res: Response) => {
     const { videoId } = req.body;
 
     if (!videoId) {
@@ -21,29 +20,24 @@ export function Play(app: Express, browser: Browser) {
 
 
       /*
-       * Close any youtube pages that are not already active with the requested videoId.
-       * If the requested videoId is already active, set it to the current page.
+       * Search through all the currently open pages for a page matching the provided videoId.
        */
       if (pages.length > 0) {
-        await Promise.all(
-          pages.map(async page => {
-            const currentUrl = page.url();
-            if (currentUrl.includes("youtube.com") && currentUrl.includes(`?v=${videoId}`)) {
-              currentPage = page;
-              console.log("Page with existing videoId found")
-            } else if (currentUrl.includes("youtube.com")) {
-              await page.close();
-              console.log(`Closed existing YouTube page: ${currentUrl}`);
-            }
-          })
-        )
+        pages.map(page => {
+          const currentUrl = page.url();
+          if (currentUrl.includes("youtube.com") && currentUrl.includes(`?v=${videoId}`)) {
+            currentPage = page;
+            console.log("Page with existing videoId found")
+          }
+        })
+      } else {
+        res.status(404).send({ message: "No current pages" });
+        return;
       }
 
       if (!currentPage) {
-        // Open a new tab and navigate to the URL
-        const url = `${YOUTUBE_URL}${videoId}`;
-        currentPage = await browser.newPage();
-        await currentPage.goto(url);
+        res.status(404).send({ message: "No video found" });
+        return;
       }
 
       try {
@@ -67,18 +61,17 @@ export function Play(app: Express, browser: Browser) {
         const outerHTML = await playButton.getProperty("outerHTML");
         const htmlJsonButton = await outerHTML.jsonValue();
         // eslint-disable-next-line quotes
-        if (htmlJsonButton.includes(`data-title-no-tooltip="Play"`)) {
+        if (htmlJsonButton.includes(`data-title-no-tooltip="Pause"`)) {
 
           await currentPage.keyboard.press("k");
-          res.status(200).send({ message: "Video started" });
+          res.status(200).send({ message: "Video paused" });
           return;
         }
 
-        res.status(200).send({ message: "Video already playing" });
+        res.status(200).send({ message: "Video already paused" });
 
       } catch (err: any) {
-        console.log(err);
-        res.status(500).send({ message: "Something went wrong finding the youtube video" });
+        res.status(500).send({ message: "Something went wrong pausing the youtube video" });
       }
     } catch (err: any) {
       console.error(`An error occured: ${err}`);
