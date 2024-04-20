@@ -19,11 +19,18 @@ export async function HandleSearchVideos(req: Request, res: Response) {
     return;
   }
 
-  
+
   let parsedLimit = 20;
   if (limit && limit !== "undefined") {
     parsedLimit = parseInt(limit);
   }
+
+  /*
+   * TODO
+   * Implement backend caching to sql lite instance:
+   * - Hash the search query -> use as PK
+   *    - Store search results and timestamp of when it was searched
+   */
 
   const ytResponse = await YoutubeAPI.searchVideos(val, parsedLimit);
 
