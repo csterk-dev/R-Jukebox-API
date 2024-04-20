@@ -6,7 +6,7 @@ import { Express, Request, Response } from "express";
  * Pause Video Route - Finds the current youtube videoId in the browser and attempt to pause it.
  * If no page with the provided videoId is present, will return 404.
  */
-export function Pause(app: Express, browser: Browser) {
+function Pause(app: Express, browser: Browser) {
   app.post("/pause", async (req: Request, res: Response) => {
     const { videoId } = req.body;
 
@@ -44,7 +44,8 @@ export function Pause(app: Express, browser: Browser) {
         const playBtnSelector = ".ytp-play-button";
         const playButton = await currentPage.waitForSelector(playBtnSelector, {
           visible: true,
-          timeout: 10000 // Attempt to find the selector for 10seconds 
+          // Attempt to find the selector for 10seconds 
+          timeout: 10000 
         }).catch(() => null);
 
 

@@ -6,7 +6,7 @@ import { Express, Request, Response } from "express";
  * 
  * @returns The current port and platforn from which the server is running on
  */
-export function IsAlive(app: Express, port?: string, platform?: NodeJS.Platform) {
+function IsAlive(app: Express, port?: string, platform?: NodeJS.Platform) {
 
   app.get("/", (req: Request, res: Response) => {
     res.status(200).send(`The server is running on port ${port}, on platform ${platform}`);

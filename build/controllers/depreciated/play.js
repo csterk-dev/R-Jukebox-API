@@ -1,6 +1,5 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.Play = void 0;
 const constants_1 = require("../../constants");
 /**
  * Play Video Route - Opens the provided youtube videoId in the browser, if it is not already active.
@@ -42,7 +41,8 @@ function Play(app, browser) {
                 const playBtnSelector = ".ytp-play-button";
                 const playButton = await currentPage.waitForSelector(playBtnSelector, {
                     visible: true,
-                    timeout: 10000 // Attempt to find the selector for 10seconds 
+                    // Attempt to find the selector for 10seconds 
+                    timeout: 10000
                 }).catch(() => null);
                 // If the play button returns null, then the video is unavailable.
                 if (!playButton) {
@@ -74,4 +74,3 @@ function Play(app, browser) {
         }
     });
 }
-exports.Play = Play;

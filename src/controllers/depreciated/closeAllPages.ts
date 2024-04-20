@@ -5,7 +5,7 @@ import { Browser } from "puppeteer";
 /**
  * Close Pages Route - Closes all browser pages.
  */
-export function CloseAllPages(app: Express, browser: Browser) {
+function CloseAllPages(app: Express, browser: Browser) {
 
   app.get("/closeAllPages", async (req: Request, res: Response) => {
     try {
