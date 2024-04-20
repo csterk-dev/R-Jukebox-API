@@ -8,11 +8,12 @@ import { PlayerRouter } from "./routes/puppeteerRoutes";
 import { youtubeRouter } from "./routes/youtubeRoutes";
 
 
-
 /*
  * Server setup
  */
+const cors = require("cors");
 const app = express();
+app.use(cors());
 app.use(BodyParser.urlencoded({ extended: false }));
 app.use(BodyParser.json())
 const osPlatform = platform();
