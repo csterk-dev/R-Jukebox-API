@@ -1,20 +1,12 @@
-import { platform } from "os";
-import express from "express";
-import BodyParser from "body-parser";
 import dotenv from "dotenv";
-import puppeteer from "puppeteer";
-import { Play } from "./endpoints/post/play";
-import { Pause } from "./endpoints/post/pause";
-import { IsAlive } from "./endpoints/get/isAlive";
-import { CloseAllPages } from "./endpoints/get/closeAllPages";
-
-
 dotenv.config();
 
-/*
- * Constants 
- */
-const PORT = process.env.PORT
+import express from "express";
+import { platform } from "os";
+import BodyParser from "body-parser";
+import { PlayerRouter } from "./routes/puppeteerRoutes";
+import { youtubeRouter } from "./routes/youtubeRoutes";
+
 
 
 /*
@@ -26,35 +18,19 @@ app.use(BodyParser.json())
 const osPlatform = platform();
 
 
-/**
- * Launches a puppeteer browser instance and intialises any puppeteer routes.
+/*
+ * Constants 
  */
-async function StartPuppeteer() {
-  try {
-    const browser = await puppeteer.launch({
-      headless: false,
-      // args: ["--start-windowed"],
-      defaultViewport: null
-      // executablePath: "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
-    });
-
-    /*
-     * Initialise the puppeteer endpoints
-     */
-    Play(app, browser);
-    Pause(app, browser);
-    CloseAllPages(app, browser);
-  } catch (error: any) {
-    console.log("Error starting puppeteer", error);
-  }
-}
+const PORT = process.env.PORT
+const aliveMessage = `The server is running on port ${PORT}, on platform ${osPlatform}`
 
 
 /*
  * Initialise server endpoints and puppeteer instance.
  */
-StartPuppeteer();
-IsAlive(app, PORT, osPlatform);
+PlayerRouter(app);
+app.use("/youtube", youtubeRouter)
+app.get("/", (req, res) => res.status(200).send({ message: aliveMessage }));
 
 
 
@@ -62,5 +38,5 @@ IsAlive(app, PORT, osPlatform);
  * Start the server
  */
 app.listen(PORT, () => {
-  console.log(`The server is running on port ${PORT}, on platform ${osPlatform}`);
+  console.log(aliveMessage);
 });

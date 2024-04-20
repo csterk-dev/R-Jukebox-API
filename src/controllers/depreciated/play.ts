@@ -1,13 +1,13 @@
 import { Browser, Page } from "puppeteer";
 import { Express, Request, Response } from "express";
-import { YOUTUBE_URL } from "../../constants";
+import { YOUTUBE_BROWSER_WATCH_PAGE_URL } from "../../constants";
 
 
 /**
  * Play Video Route - Opens the provided youtube videoId in the browser, if it is not already active.
  * If it is active, it will attempt resume the video.
  */
-export function Play(app: Express, browser: Browser) {
+function Play(app: Express, browser: Browser) {
   app.post("/play", async (req: Request, res: Response) => {
     const { videoId } = req.body;
 
@@ -41,7 +41,7 @@ export function Play(app: Express, browser: Browser) {
 
       if (!currentPage) {
         // Open a new tab and navigate to the URL
-        const url = `${YOUTUBE_URL}${videoId}`;
+        const url = `${YOUTUBE_BROWSER_WATCH_PAGE_URL}${videoId}`;
         currentPage = await browser.newPage();
         await currentPage.goto(url);
       }
@@ -50,7 +50,8 @@ export function Play(app: Express, browser: Browser) {
         const playBtnSelector = ".ytp-play-button";
         const playButton = await currentPage.waitForSelector(playBtnSelector, {
           visible: true,
-          timeout: 10000 // Attempt to find the selector for 10seconds 
+          // Attempt to find the selector for 10seconds 
+          timeout: 10000 
         }).catch(() => null);
 
 

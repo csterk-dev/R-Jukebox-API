@@ -21,9 +21,11 @@
   },
   "homepage": "https://github.com/csterk-dev/RpiWebMusicPlayerAPI#readme",
   "dependencies": {
+    "axios": "^1.6.8",
     "body-parser": "^1.20.2",
     "dotenv": "^16.4.5",
     "express": "^4.19.1",
+    "express-async-handler": "^1.2.0",
     "puppeteer": "^22.6.0"
   },
   "devDependencies": {
