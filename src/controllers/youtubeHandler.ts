@@ -19,13 +19,16 @@ export async function HandleSearchVideos(req: Request, res: Response) {
     return;
   }
 
+  
   let parsedLimit = 20;
-  if (typeof limit === "string") parsedLimit = parseInt(limit);
+  if (limit && limit !== "undefined") {
+    parsedLimit = parseInt(limit);
+  }
 
   const ytResponse = await YoutubeAPI.searchVideos(val, parsedLimit);
 
   if (ytResponse.status !== 200) {
-    res.status(500).json({ message: "Failed to get results from youtube API" });
+    res.status(400).send({ message: "Failed to get results from youtube API" });
     return;
   }
 
@@ -45,18 +48,18 @@ export async function HandleSearchVideos(req: Request, res: Response) {
  * @returns {SearchVideoResult} The `SearchVideoResult` from the api.
  */
 export async function HandleGetContentDetails(req: Request, res: Response) {
-  const { videoIds } = req.query as { videoIds: string; limit?: string };
+  const { ids } = req.query as { ids: string; limit?: string };
 
-  if (!videoIds) {
+  if (!ids) {
     res.status(400).json({ message: "No video ids were provided" });
     return;
   }
 
 
-  const ytResponse = await YoutubeAPI.getVideosContentDetails(videoIds);
+  const ytResponse = await YoutubeAPI.getVideosContentDetails(ids);
 
   if (ytResponse.status !== 200) {
-    res.status(500).json({ message: "Failed to get results from youtube API" });
+    res.status(ytResponse.status).send({ message: "Failed to get results from youtube API" });
     return;
   }
 

@@ -13,7 +13,9 @@ const youtubeRoutes_1 = require("./routes/youtubeRoutes");
 /*
  * Server setup
  */
+const cors = require("cors");
 const app = (0, express_1.default)();
+app.use(cors());
 app.use(body_parser_1.default.urlencoded({ extended: false }));
 app.use(body_parser_1.default.json());
 const osPlatform = (0, os_1.platform)();
