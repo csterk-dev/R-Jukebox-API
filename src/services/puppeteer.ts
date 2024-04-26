@@ -7,6 +7,8 @@ import puppeteer from "puppeteer";
 export async function InitialsePuppeteerBrowser() {
   try {
     const browser = await puppeteer.launch({
+      // Set timeout to be 24h to try and prevent `Requesting main frame too early!` error.
+      timeout: 3600000, 
       headless: false,
       // args: ["--start-windowed"],
       defaultViewport: null
