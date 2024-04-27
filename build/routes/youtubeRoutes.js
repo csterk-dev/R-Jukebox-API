@@ -15,4 +15,3 @@ exports.youtubeRouter = express_1.default.Router();
  * Initialise the youtube endpoints
  */
 exports.youtubeRouter.get("/search", (0, express_async_handler_1.default)(async (req, res) => (0, youtubeHandler_1.HandleSearchVideos)(req, res)));
-exports.youtubeRouter.get("/contentDetails", (0, express_async_handler_1.default)(async (req, res) => (0, youtubeHandler_1.HandleGetContentDetails)(req, res)));
