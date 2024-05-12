@@ -97,6 +97,7 @@ type Thumbnails = {
  * Video type used as the collated data structure from the various results.
  */
 declare interface Video {
+  channelId: string;
   channelTitle: string;
   duration: string;
   publishedAt: string;

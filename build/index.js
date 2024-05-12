@@ -12,7 +12,7 @@ const body_parser_1 = __importDefault(require("body-parser"));
 const puppeteerRoutes_1 = require("./routes/puppeteerRoutes");
 const youtubeRoutes_1 = require("./routes/youtubeRoutes");
 const websockets_1 = require("./services/websockets");
-const constants_1 = require("./constants");
+const websocketHandlers_1 = require("./controllers/websocketHandlers");
 /*
  * Server setup
  */
@@ -38,36 +38,6 @@ app.get("/", (req, res) => res.status(200).send({ message: aliveMessage }));
 const server = app.listen(PORT, () => {
     console.log(aliveMessage);
 });
-/**
- * The current video state
- */
-let currentVideo;
-let isPlaying = false;
 const io = (0, websockets_1.InitialiseWebSocketServer)(server);
-io.on("connection", handleSocketConnection);
-function handleSocketConnection(socket) {
-    /**
-     * Send the current state of the player, whether it is playing, and if so what is the current video
-     */
-    io.emit(constants_1.WebSocketEventKeys.isPlaying, isPlaying);
-    io.emit(constants_1.WebSocketEventKeys.currentVideo, currentVideo);
-    /**
-     * Endpoint to set the current video that is playing.
-     */
-    socket.on(constants_1.WebSocketEventKeys.setCurrentVideo, (video) => {
-        console.log("Socket: Setting current video", video);
-        currentVideo = video;
-        console.log("Socket: Setting is playing", true);
-        isPlaying = true;
-        io.emit(constants_1.WebSocketEventKeys.currentVideo, currentVideo);
-        io.emit(constants_1.WebSocketEventKeys.isPlaying, isPlaying);
-    });
-    /**
-     * Endpoint to toggle the video playing state.
-     */
-    socket.on(constants_1.WebSocketEventKeys.setIsPlaying, (isPlayingState) => {
-        console.log("Socket: Setting is playing", isPlayingState);
-        isPlaying = isPlayingState;
-        io.emit(constants_1.WebSocketEventKeys.isPlaying, isPlaying);
-    });
-}
+io.on("connection", (socket) => (0, websocketHandlers_1.HandleSocketConnection)(socket, io));
+// class="ytp-ad-skip-button-modern"

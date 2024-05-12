@@ -39,9 +39,7 @@ export async function HandleSearchVideos(req: Request, res: Response) {
     res.status(400).send({ message: "Failed to get search from youtube API" });
     return;
   }
-  const videoIds = searchRes.data.items.map(i => {
-    return i.id.videoId
-  })
+  const videoIds = searchRes.data.items.map(i => i.id.videoId);
 
   const detailsRes: AxiosResponse<GetVideosContentDetailsResult> = await YoutubeAPI.getVideosContentDetails(videoIds.toString());
 
@@ -54,6 +52,7 @@ export async function HandleSearchVideos(req: Request, res: Response) {
     const video = searchRes.data.items.find(searchItem => searchItem.id.videoId == detailsItem.id);
     if (!video) return undefined;
     return {
+      channelId: video.snippet.channelId,
       channelTitle: video.snippet.channelTitle,
       duration: detailsItem.contentDetails.duration,
       publishedAt: video.snippet.publishedAt,

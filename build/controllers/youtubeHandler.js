@@ -32,9 +32,7 @@ async function HandleSearchVideos(req, res) {
         res.status(400).send({ message: "Failed to get search from youtube API" });
         return;
     }
-    const videoIds = searchRes.data.items.map(i => {
-        return i.id.videoId;
-    });
+    const videoIds = searchRes.data.items.map(i => i.id.videoId);
     const detailsRes = await youtube_1.YoutubeAPI.getVideosContentDetails(videoIds.toString());
     if (detailsRes.status !== 200) {
         res.status(detailsRes.status).send({ message: "Failed to get content details from youtube API" });
@@ -45,6 +43,7 @@ async function HandleSearchVideos(req, res) {
         if (!video)
             return undefined;
         return {
+            channelId: video.snippet.channelId,
             channelTitle: video.snippet.channelTitle,
             duration: detailsItem.contentDetails.duration,
             publishedAt: video.snippet.publishedAt,

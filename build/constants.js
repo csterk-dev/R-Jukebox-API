@@ -16,5 +16,7 @@ exports.WebSocketEventKeys = {
     /** Gets the current video. */
     currentVideo: "current-video",
     /** Updates the current video and sets `isPlaying` boolean to true on the server. */
-    setCurrentVideo: "set-current-video"
+    setCurrentVideo: "set-current-video",
+    /** Used to return the current state to the newly connect client. */
+    getInitialState: "get-initial-state"
 };
