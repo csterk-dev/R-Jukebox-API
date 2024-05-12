@@ -125,7 +125,7 @@ module.exports = {
     indent: ["error", 2, { SwitchCase: 1 }],
     "jsx-quotes": ["error", "prefer-double"],
     "lines-around-comment": "off",
-    "multiline-comment-style": ["error", "starred-block"],
+    "multiline-comment-style": ["off"],
     "newline-per-chained-call": "error",
     "no-async-promise-executor": "warn",
     "no-await-in-loop": "warn",
