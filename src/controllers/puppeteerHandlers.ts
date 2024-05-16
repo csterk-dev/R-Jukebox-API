@@ -13,7 +13,7 @@ import { YOUTUBE_BROWSER_WATCH_PAGE_URL } from "../constants";
  */
 export async function HandlePlayVideo(req: Request, res: Response, browser: Browser) {
   const { videoId } = req.body;
-  console.log("Play: Incoming video id", videoId);
+  console.log("HandlePlay: Incoming video id", videoId);
 
   if (!videoId) {
     console.log("No video ID providered");
@@ -110,7 +110,7 @@ export async function HandlePlayVideo(req: Request, res: Response, browser: Brow
  */
 export async function HandlePauseVideo(req: Request, res: Response, browser: Browser) {
   const { videoId } = req.body;
-  console.log("Pause: Incoming video id", videoId);
+  console.log("HandlePause: Incoming video id", videoId);
   if (!videoId) {
     console.log("No video ID providered");
     res.status(400).json({ message: "No video ID provided" });

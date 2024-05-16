@@ -12,6 +12,8 @@ const puppeteer_1 = __importDefault(require("puppeteer"));
 async function InitialsePuppeteerBrowser() {
     try {
         const browser = await puppeteer_1.default.launch({
+            // Set timeout to be 24h to try and prevent `Requesting main frame too early!` error.
+            timeout: 3600000,
             headless: false,
             // args: ["--start-windowed"],
             defaultViewport: null
@@ -20,6 +22,7 @@ async function InitialsePuppeteerBrowser() {
         if (!browser) {
             throw new Error("Failed to start puppeteer browser instance");
         }
+        browser.on("error", console.log);
         return browser;
     }
     catch (error) {

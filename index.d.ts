@@ -1,4 +1,6 @@
-
+/**
+ * API Get Videos ContentDetails return structure.
+ */
 declare interface GetVideosContentDetailsResult {
   kind: string,
   etag: string,
@@ -9,7 +11,9 @@ declare interface GetVideosContentDetailsResult {
   items: GetVideosContentDetailsItem[]
 }
 
-
+/**
+ * API Search Video return structure.
+ */
 declare interface SearchVideoResult {
   kind: string,
   etag: string,
@@ -40,7 +44,8 @@ declare interface GetVideosContentDetailsItem {
       blocked: string[]
     },
     contentRating: {},
-    projection: string // default is "rectangular"
+    // projection default is "rectangular"
+    projection: string
   }
 }
 
@@ -59,26 +64,44 @@ declare interface SearchVideoItem {
     channelId: string,
     title: string,
     description: string,
-    thumbnails: {
-      default: {
-        url: string,
-        width: number,
-        height: number
-      },
-      medium: {
-        url: string
-        width: number,
-        height: number
-      },
-      high: {
-        url: string,
-        width: number,
-        height: number
-      }
-    },
+    thumbnails: Thumbnails,
     channelTitle: string,
     liveBroadcastContent: string,
     /** Use `publishedAt` instead. */
     publishTime: string
   }
+}
+
+/**
+ * Structure of the thumbnail object within the youtube video snippet
+ */
+type Thumbnails = {
+  default: {
+    url: string,
+    width: number,
+    height: number
+  },
+  medium: {
+    url: string
+    width: number,
+    height: number
+  },
+  high: {
+    url: string,
+    width: number,
+    height: number
+  }
+}
+
+/**
+ * Video type used as the collated data structure from the various results.
+ */
+declare interface Video {
+  channelId: string;
+  channelTitle: string;
+  duration: string;
+  publishedAt: string;
+  thumbnails: Thumbnails;
+  title: string;
+  videoId: string;
 }

@@ -13,7 +13,9 @@ const constants_1 = require("../constants");
  */
 async function HandlePlayVideo(req, res, browser) {
     const { videoId } = req.body;
+    console.log("HandlePlay: Incoming video id", videoId);
     if (!videoId) {
+        console.log("No video ID providered");
         res.status(400).json({ message: "No video ID provided" });
         return;
     }
@@ -52,6 +54,7 @@ async function HandlePlayVideo(req, res, browser) {
             }).catch(() => null);
             // If the play button returns null, then the video is unavailable.
             if (!playButton) {
+                console.log("Video unavailable");
                 res.status(404).send({ message: "Video unavailable" });
                 return;
             }
@@ -64,18 +67,21 @@ async function HandlePlayVideo(req, res, browser) {
             // eslint-disable-next-line quotes
             if (htmlJsonButton.includes(`data-title-no-tooltip="Play"`)) {
                 await currentPage.keyboard.press("k");
+                console.log("Video started");
                 res.status(200).send({ message: "Video started" });
                 return;
             }
+            console.log("Video already paused");
             res.status(200).send({ message: "Video already playing" });
         }
         catch (err) {
+            console.log("Something went wrong finding the youtube video");
             console.log(err);
             res.status(500).send({ message: "Something went wrong finding the youtube video" });
         }
     }
     catch (err) {
-        console.error(`An error occured: ${err}`);
+        console.log(`An error occured: ${err}`);
         res.status(500).send({ message: "Internal server error" });
     }
 }
@@ -90,7 +96,9 @@ exports.HandlePlayVideo = HandlePlayVideo;
  */
 async function HandlePauseVideo(req, res, browser) {
     const { videoId } = req.body;
+    console.log("HandlePause: Incoming video id", videoId);
     if (!videoId) {
+        console.log("No video ID providered");
         res.status(400).json({ message: "No video ID provided" });
         return;
     }
@@ -110,10 +118,12 @@ async function HandlePauseVideo(req, res, browser) {
             });
         }
         else {
+            console.log("No current pages");
             res.status(404).send({ message: "No current pages" });
             return;
         }
         if (!currentPage) {
+            console.log("No video found");
             res.status(404).send({ message: "No video found" });
             return;
         }
@@ -126,6 +136,7 @@ async function HandlePauseVideo(req, res, browser) {
             }).catch(() => null);
             // If the play button returns null, then the video is unavailable.
             if (!playButton) {
+                console.log("Video unavailble");
                 res.status(404).send({ message: "Video unavailable" });
                 return;
             }
@@ -138,17 +149,21 @@ async function HandlePauseVideo(req, res, browser) {
             // eslint-disable-next-line quotes
             if (htmlJsonButton.includes(`data-title-no-tooltip="Pause"`)) {
                 await currentPage.keyboard.press("k");
+                console.log("Video paused");
                 res.status(200).send({ message: "Video paused" });
                 return;
             }
+            console.log("Video already paused");
             res.status(200).send({ message: "Video already paused" });
         }
         catch (err) {
+            console.log(err);
+            console.log("Something went wrong pausing the youtube video");
             res.status(500).send({ message: "Something went wrong pausing the youtube video" });
         }
     }
     catch (err) {
-        console.error(`An error occured: ${err}`);
+        console.log(`An error occured: ${err}`);
         res.status(500).send({ message: "Internal server error" });
     }
 }
