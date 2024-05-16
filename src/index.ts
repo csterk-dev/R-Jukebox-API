@@ -24,7 +24,7 @@ const osPlatform = platform();
 /*
  * Constants 
  */
-const PORT = process.env.PORT;
+const PORT = 3001;
 const aliveMessage = `The server is running on port ${PORT}, on platform ${osPlatform}.`;
 
 

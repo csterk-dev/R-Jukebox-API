@@ -1,7 +1,7 @@
 import { YOUTUBE_API_URL } from "../constants";
 import axios from "axios";
-const YOUTUBE_API_KEY = process.env.YOUTUBE_API_KEY;
 
+const YOUTUBE_API_KEY = "AIzaSyDwLhMGIe6_rQg0ODof0ABYDbns2xehPcM";
 
 
 const YOUTUBE_CLIENT = axios.create({
