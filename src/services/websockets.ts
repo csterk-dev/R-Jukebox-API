@@ -1,8 +1,6 @@
 import { Server as WsServer } from "socket.io";
 import { Server } from "http";
 
-const clientUrl = process.env.CLIENT_URL;
-
 
 /**
  * Initialises a new Socket.IO server and returns it.
@@ -12,11 +10,13 @@ const clientUrl = process.env.CLIENT_URL;
  */
 export function InitialiseWebSocketServer(server: Server) {
   
-  return new WsServer(server, {
+  const s = new WsServer(server, {
     // Enable cors and connection state recovery 
     connectionStateRecovery: {},
     cors: {
-      origin: clientUrl
+      origin: "*"
     }
   });
+  s.on("error", console.log);
+  return s;
 }

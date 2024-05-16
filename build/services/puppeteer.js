@@ -22,6 +22,7 @@ async function InitialsePuppeteerBrowser() {
         if (!browser) {
             throw new Error("Failed to start puppeteer browser instance");
         }
+        browser.on("error", console.log);
         return browser;
     }
     catch (error) {

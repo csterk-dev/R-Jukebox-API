@@ -35,9 +35,11 @@ app.get("/", (req, res) => res.status(200).send({ message: aliveMessage }));
 /*
  * Start the server
  */
-const server = app.listen(PORT, () => {
-    console.log(aliveMessage);
-});
+const server = app.listen(PORT, () => console.log(aliveMessage));
+server.on("error", console.log);
+/*
+ * Open the websocket
+ */
 const io = (0, websockets_1.InitialiseWebSocketServer)(server);
 io.on("connection", (socket) => (0, websocketHandlers_1.HandleSocketConnection)(socket, io));
 // class="ytp-ad-skip-button-modern"

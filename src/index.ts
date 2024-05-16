@@ -39,14 +39,14 @@ app.get("/", (req, res) => res.status(200).send({ message: aliveMessage }));
 /*
  * Start the server
  */
-const server = app.listen(PORT, () => {
-  console.log(aliveMessage);
-});
+const server = app.listen(PORT, () => console.log(aliveMessage));
+server.on("error", console.log);
 
 
+/*
+ * Open the websocket 
+ */
 const io = InitialiseWebSocketServer(server);
-
-
 io.on("connection", (socket) => HandleSocketConnection(socket, io));
 
 // class="ytp-ad-skip-button-modern"
