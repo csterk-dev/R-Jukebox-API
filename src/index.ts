@@ -5,10 +5,11 @@ import cors from "cors";
 import express from "express";
 import { platform } from "os";
 import BodyParser from "body-parser";
-import { PlayerRouter } from "./routes/puppeteerRoutes";
+import { Browser } from "puppeteer";
 import { youtubeRouter } from "./routes/youtubeRoutes";
-import { InitialiseWebSocketServer } from "./services/websockets";
 import { HandleSocketConnection } from "./controllers/websocketHandlers";
+import { InitialiseWebSocketServer } from "./services/websockets";
+import { InitialsePuppeteerBrowser } from "./services/puppeteer";
 
 
 /*
@@ -19,7 +20,7 @@ app.use(cors());
 app.use(BodyParser.urlencoded({ extended: false }));
 app.use(BodyParser.json());
 const osPlatform = platform();
-
+let browser: Browser | undefined
 
 /*
  * Constants 
@@ -31,7 +32,9 @@ const aliveMessage = `The server is running on port ${PORT}, on platform ${osPla
 /*
  * Initialise server endpoints and puppeteer instance.
  */
-PlayerRouter(app);
+(async () => {
+  browser = await InitialsePuppeteerBrowser();
+})();
 app.use("/youtube", youtubeRouter);
 app.get("/", (req, res) => res.status(200).send({ message: aliveMessage }));
 
@@ -44,9 +47,9 @@ server.on("error", console.log);
 
 
 /*
- * Open the websocket 
+ * Open the player to accept connections
  */
 const io = InitialiseWebSocketServer(server);
-io.on("connection", (socket) => HandleSocketConnection(socket, io));
+io.on("connection", (socket) => HandleSocketConnection(browser, io, socket));
 
 // class="ytp-ad-skip-button-modern"
