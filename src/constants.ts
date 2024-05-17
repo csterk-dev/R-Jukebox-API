@@ -7,6 +7,10 @@ export const YOUTUBE_API_URL = "https://www.googleapis.com/youtube/v3";
  * Ensure that the client and server **have matching event keys.**
  */
 export const WebSocketEventKeys = {
+  /** Any error values. */
+  error: "error",
+  /** If the player is loading. */
+  isLoading: "is-loading",
   /** Gets the value from the isPlaying boolean. */
   isPlaying: "is-playing",
   /** Updates the isPlaying boolean state. */
