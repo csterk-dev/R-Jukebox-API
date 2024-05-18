@@ -1,5 +1,7 @@
+import { PlayVideo, TogglePlayingState } from "../services/puppeteer";
 import { WebSocketEventKeys } from "../constants";
 import { Socket, Server as WsServer } from "socket.io";
+import { Browser } from "puppeteer";
 
 
 /*
@@ -10,12 +12,12 @@ let isPlaying: boolean = false;
 
 
 /**
- * Handles all socket events regarding the `currentVideo` and `isPlaying` states.
+ * Handles all socket events.
  * 
  * @param socket The current socket instance.
  * @param io The current socket server.
  */
-export function HandleSocketConnection(socket: Socket, io: WsServer) {
+export function HandleSocketConnection(browser: Browser | undefined, io: WsServer, socket: Socket, ) {
 
   /**
    * Send the current state of the player to the newly connect client.
@@ -28,21 +30,32 @@ export function HandleSocketConnection(socket: Socket, io: WsServer) {
   /**
    * Endpoint to set the current video that is playing.
    */
-  socket.on(WebSocketEventKeys.setCurrentVideo, (video) => {
-    console.log("Socket: Setting current video", video);
-    currentVideo = video;
-    console.log("Socket: Setting is playing", true);
-    isPlaying = true;
-    io.emit(WebSocketEventKeys.currentVideo, currentVideo);
-    io.emit(WebSocketEventKeys.isPlaying, true);
+  socket.on(WebSocketEventKeys.setCurrentVideo, async (video: Video) => {
+    console.log("Socket:", "Setting currentVideo", video.videoId);
+
+    if (browser) {
+      await PlayVideo(browser, io, video.videoId)
+      currentVideo = video;
+      isPlaying = true;
+      io.emit(WebSocketEventKeys.currentVideo, currentVideo);
+      io.emit(WebSocketEventKeys.isPlaying, true);
+    } else {
+      io.emit(WebSocketEventKeys.error, "No browser found");
+    }
   });
 
   /**
    * Endpoint to toggle the video playing state.
    */
-  socket.on(WebSocketEventKeys.setIsPlaying, (isPlayingState: boolean) => {
-    console.log("Socket: Setting is playing", isPlayingState);
-    isPlaying = isPlayingState;
-    io.emit(WebSocketEventKeys.isPlaying, isPlayingState);
+  socket.on(WebSocketEventKeys.setIsPlaying, async (isPlayingState: boolean) => {
+    if (browser && currentVideo) {
+      console.log("Socket: Setting isPlaying", isPlayingState);
+      isPlaying = isPlayingState;
+
+      await TogglePlayingState(browser, io, currentVideo.videoId, isPlayingState);
+      io.emit(WebSocketEventKeys.isPlaying, isPlaying);
+    } else {
+      io.emit(WebSocketEventKeys.error, "No browser or current video found");
+    }
   });
 }

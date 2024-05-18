@@ -1,6 +1,6 @@
 import { Browser, Page } from "puppeteer";
 import { Request, Response } from "express";
-import { YOUTUBE_BROWSER_WATCH_PAGE_URL } from "../constants";
+import { YOUTUBE_BROWSER_WATCH_PAGE_URL } from "../../constants";
 
 /**
  * Attempts to find the supplied `videoId` and resume playing.

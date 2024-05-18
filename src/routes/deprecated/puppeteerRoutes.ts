@@ -1,7 +1,7 @@
 /* eslint-disable require-await */
 import express, { Express, Request, Response } from "express";
-import { HandlePauseVideo, HandlePlayVideo } from "../controllers/puppeteerHandlers";
-import { InitialsePuppeteerBrowser } from "../services/puppeteer";
+import { HandlePauseVideo, HandlePlayVideo } from "../../controllers/depreciated/puppeteerHandlers";
+import { InitialsePuppeteerBrowser } from "../../services/puppeteer";
 
 // Simple middleware for handling exceptions inside of async express routes and passing them to your express error handlers.
 import asyncHandler from "express-async-handler"
@@ -10,7 +10,7 @@ import asyncHandler from "express-async-handler"
 /**
  * Launches a puppeteer browser instance and intialises any puppeteer routes.
  */
-export async function PlayerRouter(app: Express) {
+async function PlayerRouter(app: Express) {
   try {
     // Setup router to handle puppeteer requests and initialise puppeteer
     const playerRouter = express.Router();

@@ -6,7 +6,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.YoutubeAPI = void 0;
 const constants_1 = require("../constants");
 const axios_1 = __importDefault(require("axios"));
-const YOUTUBE_API_KEY = process.env.YOUTUBE_API_KEY;
+const YOUTUBE_API_KEY = "AIzaSyDwLhMGIe6_rQg0ODof0ABYDbns2xehPcM";
 const YOUTUBE_CLIENT = axios_1.default.create({
     baseURL: constants_1.YOUTUBE_API_URL,
     headers: {

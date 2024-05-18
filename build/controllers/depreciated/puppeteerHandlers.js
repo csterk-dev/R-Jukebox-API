@@ -1,47 +1,24 @@
 "use strict";
-var __importDefault = (this && this.__importDefault) || function (mod) {
-    return (mod && mod.__esModule) ? mod : { "default": mod };
-};
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.ToggleVideoPlayingState = exports.PlayVideo = exports.InitialsePuppeteerBrowser = void 0;
-const constants_1 = require("../constants");
-const puppeteer_1 = __importDefault(require("puppeteer"));
-/**
- * Launches a puppeteer browser instance and intialises any puppeteer routes.
- * @returns {Promise<Browser | undefined>} A promise containing the current puppeteer browser instance, or undefined.
- */
-async function InitialsePuppeteerBrowser() {
-    try {
-        const browser = await puppeteer_1.default.launch({
-            // Set timeout to be 24h to try and prevent `Requesting main frame too early!` error.
-            timeout: 3600000,
-            headless: false,
-            // args: ["--start-windowed"],
-            defaultViewport: null
-            // executablePath: "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
-        });
-        if (!browser) {
-            throw new Error("Failed to start puppeteer browser instance");
-        }
-        browser.on("error", console.log);
-        return browser;
-    }
-    catch (error) {
-        console.log("Error starting puppeteer", error);
-    }
-}
-exports.InitialsePuppeteerBrowser = InitialsePuppeteerBrowser;
+exports.HandlePauseVideo = exports.HandlePlayVideo = void 0;
+const constants_1 = require("../../constants");
 /**
  * Attempts to find the supplied `videoId` and resume playing.
  * If no matching `videoId` is found, the function will attempt to close any previous youtube pages in the browser,
  * and open a new browser with the supplied `videoId`.
  *
+ * @param req Express request parm containing the `videoId` to play.
+ * @param res Express response parm.
  * @param browser The current puppeteer browser instance.
- * @param io The current server.
- * @param videoId The video to play.
  */
-async function PlayVideo(browser, io, videoId) {
-    io.emit(constants_1.WebSocketEventKeys.isLoading, true);
+async function HandlePlayVideo(req, res, browser) {
+    const { videoId } = req.body;
+    console.log("HandlePlay: Incoming video id", videoId);
+    if (!videoId) {
+        console.log("No video ID providered");
+        res.status(400).json({ message: "No video ID provided" });
+        return;
+    }
     try {
         const pages = await browser.pages();
         let currentPage;
@@ -54,11 +31,11 @@ async function PlayVideo(browser, io, videoId) {
                 const currentUrl = page.url();
                 if (currentUrl.includes("youtube.com") && currentUrl.includes(`?v=${videoId}`)) {
                     currentPage = page;
-                    console.log("PlayVideo:", "Existing videoId found");
+                    console.log("Page with existing videoId found");
                 }
                 else if (currentUrl.includes("youtube.com")) {
                     await page.close();
-                    console.log("PlayVideo:", `Closed existing YouTube page: ${currentUrl}`);
+                    console.log(`Closed existing YouTube page: ${currentUrl}`);
                 }
             }));
         }
@@ -77,8 +54,8 @@ async function PlayVideo(browser, io, videoId) {
             }).catch(() => null);
             // If the play button returns null, then the video is unavailable.
             if (!playButton) {
-                console.log("PlayVideo:", "Video unavailable");
-                io.emit(constants_1.WebSocketEventKeys.error, "Video unavailable");
+                console.log("Video unavailable");
+                res.status(404).send({ message: "Video unavailable" });
                 return;
             }
             /*
@@ -90,34 +67,41 @@ async function PlayVideo(browser, io, videoId) {
             // eslint-disable-next-line quotes
             if (htmlJsonButton.includes(`data-title-no-tooltip="Play"`)) {
                 await currentPage.keyboard.press("k");
-                console.log("PlayVideo:", "Video started");
+                console.log("Video started");
+                res.status(200).send({ message: "Video started" });
                 return;
             }
-            console.log("PlayVideo:", "Video already playing");
+            console.log("Video already paused");
+            res.status(200).send({ message: "Video already playing" });
         }
         catch (err) {
-            console.log("PlayVideo:", "Something went wrong finding the youtube video", err);
-            io.emit(constants_1.WebSocketEventKeys.error, "Something went wrong finding the youtube video");
+            console.log("Something went wrong finding the youtube video");
+            console.log(err);
+            res.status(500).send({ message: "Something went wrong finding the youtube video" });
         }
     }
     catch (err) {
-        console.log("PlayVideo:", "An error occured", err);
-        io.emit(constants_1.WebSocketEventKeys.error, "Internal server error");
-    }
-    finally {
-        io.emit(constants_1.WebSocketEventKeys.isLoading, false);
+        console.log(`An error occured: ${err}`);
+        res.status(500).send({ message: "Internal server error" });
     }
 }
-exports.PlayVideo = PlayVideo;
+exports.HandlePlayVideo = HandlePlayVideo;
 /**
  * Attempts to find the supplied `videoId` and pause playing.
  * If no matching `videoId` is found, the function will return HTTP status 404.
  *
+ * @param req Express request parm containing the `videoId` to pause.
+ * @param res Express response parm.
  * @param browser The current puppeteer browser instance.
- * @param io The current server.
- * @param videoId The video to play.
  */
-async function ToggleVideoPlayingState(browser, io, videoId, isPlayingState) {
+async function HandlePauseVideo(req, res, browser) {
+    const { videoId } = req.body;
+    console.log("HandlePause: Incoming video id", videoId);
+    if (!videoId) {
+        console.log("No video ID providered");
+        res.status(400).json({ message: "No video ID provided" });
+        return;
+    }
     try {
         const pages = await browser.pages();
         let currentPage;
@@ -129,13 +113,18 @@ async function ToggleVideoPlayingState(browser, io, videoId, isPlayingState) {
                 const currentUrl = page.url();
                 if (currentUrl.includes("youtube.com") && currentUrl.includes(`?v=${videoId}`)) {
                     currentPage = page;
-                    console.log("ToggleVideoPlayingState:", "Existing videoId found");
+                    console.log("Page with existing videoId found");
                 }
             });
         }
+        else {
+            console.log("No current pages");
+            res.status(404).send({ message: "No current pages" });
+            return;
+        }
         if (!currentPage) {
-            console.log("ToggleVideoPlayingState", "Cannot find current video");
-            io.emit(constants_1.WebSocketEventKeys.error, "Cannot find current video");
+            console.log("No video found");
+            res.status(404).send({ message: "No video found" });
             return;
         }
         try {
@@ -147,37 +136,35 @@ async function ToggleVideoPlayingState(browser, io, videoId, isPlayingState) {
             }).catch(() => null);
             // If the play button returns null, then the video is unavailable.
             if (!playButton) {
-                console.log("ToggleVideoPlayingState:", "Video unavailable");
-                io.emit(constants_1.WebSocketEventKeys.error, "Video unavailable");
+                console.log("Video unavailble");
+                res.status(404).send({ message: "Video unavailable" });
                 return;
             }
             /*
-             * Only update the player state if the incoming value is the inverse of the current state
+             * By default the video should auto start.
+             * But in the cases where it doesn't, we'll determine its state and attempt start it if required.
              */
             const outerHTML = await playButton.getProperty("outerHTML");
             const htmlJsonButton = await outerHTML.jsonValue();
             // eslint-disable-next-line quotes
-            if (htmlJsonButton.includes(`data-title-no-tooltip="Pause"`) && !isPlayingState) {
+            if (htmlJsonButton.includes(`data-title-no-tooltip="Pause"`)) {
                 await currentPage.keyboard.press("k");
-                console.log("ToggleVideoPlayingState:", "Video paused");
-                // eslint-disable-next-line quotes
+                console.log("Video paused");
+                res.status(200).send({ message: "Video paused" });
+                return;
             }
-            else if (htmlJsonButton.includes(`data-title-no-tooltip="Play"`) && isPlayingState) {
-                await currentPage.keyboard.press("k");
-                console.log("ToggleVideoPlayingState:", "Video paused");
-            }
+            console.log("Video already paused");
+            res.status(200).send({ message: "Video already paused" });
         }
         catch (err) {
-            console.log("PauseVideo:", "Something went wrong pausing the youtube video", err);
-            io.emit(constants_1.WebSocketEventKeys.error, "Something went wrong pausing the youtube video");
+            console.log(err);
+            console.log("Something went wrong pausing the youtube video");
+            res.status(500).send({ message: "Something went wrong pausing the youtube video" });
         }
     }
     catch (err) {
-        console.log("PauseVideo:", "An error occured", err);
-        io.emit(constants_1.WebSocketEventKeys.error, "Internal server error");
-    }
-    finally {
-        io.emit(constants_1.WebSocketEventKeys.isLoading, false);
+        console.log(`An error occured: ${err}`);
+        res.status(500).send({ message: "Internal server error" });
     }
 }
-exports.ToggleVideoPlayingState = ToggleVideoPlayingState;
+exports.HandlePauseVideo = HandlePauseVideo;
