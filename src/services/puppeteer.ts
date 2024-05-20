@@ -1,4 +1,4 @@
-import { WebSocketEventKeys, YOUTUBE_BROWSER_WATCH_PAGE_URL } from "../constants";
+import { PAUSE_TOOLTIP_SELECTOR, PLAY_TOOLTIP_SELECTOR, SOCKET_EVENT_KEYS, YOUTUBE_BROWSER_WATCH_PAGE_URL } from "../constants";
 import puppeteer, { Browser, Page } from "puppeteer";
 import { Server as WsServer } from "socket.io";
 
@@ -6,7 +6,7 @@ import { Server as WsServer } from "socket.io";
  * Launches a puppeteer browser instance and intialises any puppeteer routes.
  * @returns {Promise<Browser | undefined>} A promise containing the current puppeteer browser instance, or undefined.
  */
-export async function InitialsePuppeteerBrowser() {
+export async function initialsePuppeteerBrowser() {
   try {
     const browser = await puppeteer.launch({
       // Set timeout to be 24h to try and prevent `Requesting main frame too early!` error.
@@ -39,8 +39,8 @@ export async function InitialsePuppeteerBrowser() {
  * @param io The current server.
  * @param videoId The video to play.
  */
-export async function PlayVideo(browser: Browser, io: WsServer, videoId: string) {
-  io.emit(WebSocketEventKeys.isLoading, true);
+export async function playVideo(browser: Browser, io: WsServer, videoId: string) {
+  io.emit(SOCKET_EVENT_KEYS.isLoading, true);
 
   try {
     const pages = await browser.pages();
@@ -85,7 +85,7 @@ export async function PlayVideo(browser: Browser, io: WsServer, videoId: string)
       // If the play button returns null, then the video is unavailable.
       if (!playButton) {
         console.log("PlayVideo:", "Video unavailable");
-        io.emit(WebSocketEventKeys.error, "Video unavailable");
+        io.emit(SOCKET_EVENT_KEYS.error, "Video unavailable");
         return;
       }
 
@@ -95,8 +95,8 @@ export async function PlayVideo(browser: Browser, io: WsServer, videoId: string)
        */
       const outerHTML = await playButton.getProperty("outerHTML");
       const htmlJsonButton = await outerHTML.jsonValue();
-      // eslint-disable-next-line quotes
-      if (htmlJsonButton.includes(`data-title-no-tooltip="Play"`)) {
+
+      if (htmlJsonButton.includes(PLAY_TOOLTIP_SELECTOR)) {
 
         await currentPage.keyboard.press("k");
         console.log("PlayVideo:", "Video started");
@@ -107,15 +107,15 @@ export async function PlayVideo(browser: Browser, io: WsServer, videoId: string)
 
     } catch (err: any) {
       console.log("PlayVideo:", "Something went wrong finding the youtube video", err);
-      io.emit(WebSocketEventKeys.error, "Something went wrong finding the youtube video");
+      io.emit(SOCKET_EVENT_KEYS.error, "Something went wrong finding the youtube video");
     }
 
   } catch (err: any) {
     console.log("PlayVideo:", "An error occured", err);
-    io.emit(WebSocketEventKeys.error, "Internal server error");
+    io.emit(SOCKET_EVENT_KEYS.error, "Internal server error");
 
   } finally {
-    io.emit(WebSocketEventKeys.isLoading, false);
+    io.emit(SOCKET_EVENT_KEYS.isLoading, false);
   }
 }
 
@@ -129,7 +129,7 @@ export async function PlayVideo(browser: Browser, io: WsServer, videoId: string)
  * @param io The current server.
  * @param videoId The video to play.
  */
-export async function TogglePlayingState(browser: Browser, io: WsServer, videoId: string, isPlayingState: boolean) {
+export async function togglePlayingState(browser: Browser, io: WsServer, videoId: string, isPlayingState: boolean) {
 
   try {
     const pages = await browser.pages();
@@ -151,7 +151,7 @@ export async function TogglePlayingState(browser: Browser, io: WsServer, videoId
 
     if (!currentPage) {
       console.log("ToggleVideoPlayingState", "Cannot find current video");
-      io.emit(WebSocketEventKeys.error, "Cannot find current video");
+      io.emit(SOCKET_EVENT_KEYS.error, "Cannot find current video");
       return;
     }
 
@@ -167,7 +167,7 @@ export async function TogglePlayingState(browser: Browser, io: WsServer, videoId
       // If the play button returns null, then the video is unavailable.
       if (!playButton) {
         console.log("ToggleVideoPlayingState:", "Video unavailable");
-        io.emit(WebSocketEventKeys.error, "Video unavailable");
+        io.emit(SOCKET_EVENT_KEYS.error, "Video unavailable");
         return;
       }
 
@@ -177,27 +177,25 @@ export async function TogglePlayingState(browser: Browser, io: WsServer, videoId
       const outerHTML = await playButton.getProperty("outerHTML");
       const htmlJsonButton = await outerHTML.jsonValue();
 
-      // eslint-disable-next-line quotes
-      if (htmlJsonButton.includes(`data-title-no-tooltip="Pause"`) && !isPlayingState) {
+      if (htmlJsonButton.includes(PAUSE_TOOLTIP_SELECTOR) && !isPlayingState) {
 
         await currentPage.keyboard.press("k");
         console.log("ToggleVideoPlayingState:", "Video paused");
 
-      // eslint-disable-next-line quotes
-      } else if (htmlJsonButton.includes(`data-title-no-tooltip="Play"`) && isPlayingState) {
+      } else if (htmlJsonButton.includes(PLAY_TOOLTIP_SELECTOR) && isPlayingState) {
         await currentPage.keyboard.press("k");
         console.log("ToggleVideoPlayingState:", "Video played");
       }
 
     } catch (err: any) {
       console.log("PauseVideo:", "Something went wrong pausing the youtube video", err);
-      io.emit(WebSocketEventKeys.error, "Something went wrong pausing the youtube video");
+      io.emit(SOCKET_EVENT_KEYS.error, "Something went wrong pausing the youtube video");
     }
   } catch (err: any) {
     console.log("PauseVideo:", "An error occured", err);
 
-    io.emit(WebSocketEventKeys.error, "Internal server error");
+    io.emit(SOCKET_EVENT_KEYS.error, "Internal server error");
   } finally {
-    io.emit(WebSocketEventKeys.isLoading, false);
+    io.emit(SOCKET_EVENT_KEYS.isLoading, false);
   }
 }
