@@ -1,5 +1,5 @@
 /* eslint-disable require-await */
-import { HandleSearchVideos } from "../controllers/youtubeHandler";
+import { handleSearchVideos } from "../controllers/youtubeHandler";
 import express, { Request, Response } from "express";
 
 // Simple middleware for handling exceptions inside of async express routes and passing them to your express error handlers.
@@ -12,4 +12,4 @@ export const youtubeRouter = express.Router();
 /*
  * Initialise the youtube endpoints
  */
-youtubeRouter.get("/search", asyncHandler(async (req: Request, res: Response) => HandleSearchVideos(req, res)));
+youtubeRouter.get("/search", asyncHandler(async (req: Request, res: Response) => handleSearchVideos(req, res)));

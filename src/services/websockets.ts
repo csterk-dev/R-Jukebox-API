@@ -8,7 +8,7 @@ import { Server } from "http";
  * 
  * @returns {Socket.IO server} The Socket.IO server instance.
  */
-export function InitialiseWebSocketServer(server: Server) {
+export function initialiseWebSocketServer(server: Server) {
   
   const s = new WsServer(server, {
     // Enable cors and connection state recovery 

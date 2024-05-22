@@ -12,7 +12,7 @@ import { AxiosResponse } from "axios";
  * 
  * @returns {Video} The the formatted results from the api.
  */
-export async function HandleSearchVideos(req: Request, res: Response) {
+export async function handleSearchVideos(req: Request, res: Response) {
   const { val, limit } = req.query as { val: string; limit?: string };
 
   if (!val) {
