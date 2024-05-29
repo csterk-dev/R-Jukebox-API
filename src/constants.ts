@@ -1,4 +1,7 @@
 /* eslint-disable quotes */
+export const PORT = 3001;
+
+export const PLAYER_URL = `http://localhost:${PORT}/player`;
 export const YOUTUBE_BROWSER_WATCH_PAGE_URL = "https://www.youtube.com/watch?v=";
 export const YOUTUBE_API_URL = "https://www.googleapis.com/youtube/v3";
 
@@ -31,6 +34,8 @@ export const SOCKET_EVENT_KEYS = {
 
 export const PLAY_TOOLTIP_SELECTOR = `data-title-no-tooltip="Play"`;
 export const PAUSE_TOOLTIP_SELECTOR = `data-title-no-tooltip="Pause"`;
+export const PLAY_BUTTON_SELECTOR = ".ytp-play-button";
+export const IFRAME_SELECTOR = `iframe[id="player"]`;
 
 /** Ensure front and end values match */
 export const SYSTEM_VOLUME_DEFAULT = 30.
