@@ -23,39 +23,45 @@ export function handleSocketConnection(browser: Browser | undefined, io: WsServe
    * Send the current state of the player to the newly connect client.
    */
   socket.on(SOCKET_EVENT_KEYS.getInitialState, (incomingClientId) => {
-    io.to(incomingClientId).emit(SOCKET_EVENT_KEYS.isPlaying, isPlaying);
-    io.to(incomingClientId).emit(SOCKET_EVENT_KEYS.currentVideo, currentVideo);
-    io.to(incomingClientId).emit(SOCKET_EVENT_KEYS.systemVolume, systemVolume);
+    setTimeout(() => {
+      io.to(incomingClientId).emit(SOCKET_EVENT_KEYS.isPlaying, isPlaying);
+      io.to(incomingClientId).emit(SOCKET_EVENT_KEYS.currentVideo, currentVideo);
+      io.to(incomingClientId).emit(SOCKET_EVENT_KEYS.systemVolume, systemVolume);
+    }, 200);
   });
 
   /**
    * Endpoint to set the current video that is playing.
    */
-  socket.on(SOCKET_EVENT_KEYS.setCurrentVideo, async (video: Video) => {
+  socket.on(SOCKET_EVENT_KEYS.setCurrentVideo, async (incomingVideo: Video) => {
     if (browser) {
-      console.log("Socket:", "Setting currentVideo", video.videoId);
+      console.log("Socket:", "Setting currentVideo", incomingVideo.videoId);
 
-      await playVideo(browser, io, video.videoId)
-      currentVideo = video;
+      const exitCode = await playVideo(browser, io, incomingVideo.videoId);
+      if (exitCode === 1) return;
+
+      currentVideo = incomingVideo;
       isPlaying = true;
-      
+
       io.emit(SOCKET_EVENT_KEYS.currentVideo, currentVideo);
       io.emit(SOCKET_EVENT_KEYS.isPlaying, true);
     } else {
-      io.emit(SOCKET_EVENT_KEYS.error, "No browser found");
+      io.emit(SOCKET_EVENT_KEYS.error, "No browser found. Refresh and try again.");
     }
   });
 
   /**
    * Endpoint to toggle the video playing state.
    */
-  socket.on(SOCKET_EVENT_KEYS.setIsPlaying, async (isPlayingState: boolean) => {
+  socket.on(SOCKET_EVENT_KEYS.setIsPlaying, async (incomingIsPlaying: boolean) => {
     if (browser && currentVideo) {
-      console.log("Socket: Setting isPlaying", isPlayingState);
+      console.log("Socket: Setting isPlaying", incomingIsPlaying);
+
+      const exitCode = await togglePlayingState(browser, io, currentVideo.videoId, incomingIsPlaying);
+      if (exitCode === 1) return;
       
-      await togglePlayingState(browser, io, currentVideo.videoId, isPlayingState);
-      isPlaying = isPlayingState;
-      
+      isPlaying = incomingIsPlaying;
+
       io.emit(SOCKET_EVENT_KEYS.isPlaying, isPlaying);
     } else {
       io.emit(SOCKET_EVENT_KEYS.error, "No browser or current video found");
@@ -71,7 +77,7 @@ export function handleSocketConnection(browser: Browser | undefined, io: WsServe
 
       // TODO
       systemVolume = incomingSystemVol;
-      
+
       io.emit(SOCKET_EVENT_KEYS.systemVolume, systemVolume);
     }
   });
