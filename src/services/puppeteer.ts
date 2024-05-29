@@ -1,4 +1,4 @@
-import { PAUSE_TOOLTIP_SELECTOR, PLAY_TOOLTIP_SELECTOR, SOCKET_EVENT_KEYS, YOUTUBE_BROWSER_WATCH_PAGE_URL } from "../constants";
+import { IFRAME_SELECTOR, PAUSE_TOOLTIP_SELECTOR, PLAY_BUTTON_SELECTOR, PLAY_TOOLTIP_SELECTOR, PLAYER_URL, SOCKET_EVENT_KEYS } from "../constants";
 import puppeteer, { Browser, Page } from "puppeteer";
 import { Server as WsServer } from "socket.io";
 
@@ -32,12 +32,13 @@ export async function initialsePuppeteerBrowser() {
 
 /**
  * Attempts to find the supplied `videoId` and resume playing.
- * If no matching `videoId` is found, the function will attempt to close any previous youtube pages in the browser,
- * and open a new browser with the supplied `videoId`.
+ * If no matching `videoId` is found, the function will attempt to close any previous player pages in the browser,
+ * and open a new page with the supplied `videoId`.
  * 
  * @param browser The current puppeteer browser instance.
  * @param io The current server.
  * @param videoId The video to play.
+ * @returns An exit code: error == 1, OK == 0 | undefined.
  */
 export async function playVideo(browser: Browser, io: WsServer, videoId: string) {
   io.emit(SOCKET_EVENT_KEYS.isLoading, true);
@@ -47,46 +48,55 @@ export async function playVideo(browser: Browser, io: WsServer, videoId: string)
     let currentPage: Page | undefined;
 
     /*
-     * Close any youtube pages that are not already active with the requested videoId.
+     * Close any pages that are not already active with the requested videoId.
      * If the requested videoId is already active, set it to the current page.
      */
     if (pages.length > 0) {
       await Promise.all(
         pages.map(async page => {
           const currentUrl = page.url();
-          if (currentUrl.includes("youtube.com") && currentUrl.includes(`?v=${videoId}`)) {
+          if (currentUrl.includes(PLAYER_URL) && currentUrl.includes(videoId)) {
             currentPage = page;
-            console.log("PlayVideo:", "videoId found");
+            console.log("PlayVideo:", "videoId found.");
 
-          } else if (currentUrl.includes("youtube.com")) {
+          } else if (currentUrl.includes(PLAYER_URL)) {
             await page.close();
-            console.log("PlayVideo:", `Closed previous YouTube page: ${currentUrl}`);
+            console.log("PlayVideo:", `Closed previous page: ${currentUrl}.`);
           }
         })
       )
     }
 
+    // If no previous page, open a new tab and navigate to the player
     if (!currentPage) {
-      // Open a new tab and navigate to the URL
-      const url = `${YOUTUBE_BROWSER_WATCH_PAGE_URL}${videoId}`;
+      const url = `${PLAYER_URL}/${videoId}`;
       currentPage = await browser.newPage();
       await currentPage.goto(url);
     }
 
     try {
-      const playBtnSelector = ".ytp-play-button";
-      const playButton = await currentPage.waitForSelector(playBtnSelector, {
+      // Get the player iframe so we can interact with it
+      const iframeElementHandle = await currentPage.$(IFRAME_SELECTOR);
+      if (!iframeElementHandle) {
+        console.log("PlayVideo:", "Iframe not ready.");
+        io.emit(SOCKET_EVENT_KEYS.error, "Iframe not ready.");
+        return 1;
+      }
+
+      const iframeContentFrame = await iframeElementHandle.contentFrame();
+
+      // Attempt to find the selector for 10seconds
+      const playButton = await iframeContentFrame.waitForSelector(PLAY_BUTTON_SELECTOR, {
         visible: true,
-        // Attempt to find the selector for 10seconds 
         timeout: 10000
       }).catch(() => null);
 
 
-      // If the play button returns null, then the video is unavailable.
+      // If the play button returns null, then the video is unavailable (delisted or unavailable in this region).
       if (!playButton) {
-        console.log("PlayVideo:", "Video unavailable");
-        io.emit(SOCKET_EVENT_KEYS.error, "Video unavailable");
-        return;
+        console.log("PlayVideo:", "Video unavailable.");
+        io.emit(SOCKET_EVENT_KEYS.error, "Video unavailable.");
+        return 1;
       }
 
       /*
@@ -97,22 +107,25 @@ export async function playVideo(browser: Browser, io: WsServer, videoId: string)
       const htmlJsonButton = await outerHTML.jsonValue();
 
       if (htmlJsonButton.includes(PLAY_TOOLTIP_SELECTOR)) {
-
-        await currentPage.keyboard.press("k");
-        console.log("PlayVideo:", "Video started");
-        return;
+        playButton.click();
+        console.log("PlayVideo:", "Video started.");
+        return 0;
       }
 
-      console.log("PlayVideo:", "Video already playing");
+      console.log("PlayVideo:", "Video already playing.");
+      return 0;
 
     } catch (err: any) {
-      console.log("PlayVideo:", "Something went wrong finding the youtube video", err);
-      io.emit(SOCKET_EVENT_KEYS.error, "Something went wrong finding the youtube video");
+      console.log("PlayVideo:", "Something went wrong finding the youtube video.\n", err);
+      io.emit(SOCKET_EVENT_KEYS.error, "Something went wrong finding the youtube video.");
+      return 1;
+
     }
 
   } catch (err: any) {
-    console.log("PlayVideo:", "An error occured", err);
-    io.emit(SOCKET_EVENT_KEYS.error, "Internal server error");
+    console.log("PlayVideo:", "An error occured accessing the browser.\n", err);
+    io.emit(SOCKET_EVENT_KEYS.error, "An error occured accessing the browser.");
+    return 1;
 
   } finally {
     io.emit(SOCKET_EVENT_KEYS.isLoading, false);
@@ -123,11 +136,12 @@ export async function playVideo(browser: Browser, io: WsServer, videoId: string)
 
 /**
  * Attempts to find the supplied `videoId` and pause playing.
- * If no matching `videoId` is found, the function will return HTTP status 404.
+ * If no matching `videoId` is found, the function emit an error and return an exit code 1.
  * 
  * @param browser The current puppeteer browser instance.
  * @param io The current server.
  * @param videoId The video to play.
+ * @returns An exit code: error == 1, OK == 0 | undefined.
  */
 export async function togglePlayingState(browser: Browser, io: WsServer, videoId: string, isPlayingState: boolean) {
 
@@ -141,33 +155,41 @@ export async function togglePlayingState(browser: Browser, io: WsServer, videoId
     if (pages.length > 0) {
       pages.map(page => {
         const currentUrl = page.url();
-        if (currentUrl.includes("youtube.com") && currentUrl.includes(`?v=${videoId}`)) {
+        if (currentUrl.includes(PLAYER_URL) && currentUrl.includes(videoId)) {
           currentPage = page;
-          console.log("ToggleVideoPlayingState:", "videoId found");
-
+          console.log("ToggleVideoPlayingState:", "videoId found.");
         }
       })
     }
 
     if (!currentPage) {
-      console.log("ToggleVideoPlayingState", "Cannot find current video");
-      io.emit(SOCKET_EVENT_KEYS.error, "Cannot find current video");
-      return;
+      console.log("ToggleVideoPlayingState", "Cannot find current video.");
+      io.emit(SOCKET_EVENT_KEYS.error, "Cannot find current video.");
+      return 1;
     }
 
     try {
-      const playBtnSelector = ".ytp-play-button";
-      const playButton = await currentPage.waitForSelector(playBtnSelector, {
+      // Get the player iframe so we can interact with it
+      const iframeElementHandle = await currentPage.$(IFRAME_SELECTOR);
+      if (!iframeElementHandle) {
+        console.log("PlayVideo:", "Iframe not ready.");
+        io.emit(SOCKET_EVENT_KEYS.error, "Iframe not ready.");
+        return 1;
+      }
+
+      const iframeContentFrame = await iframeElementHandle.contentFrame();
+
+      // Attempt to find the selector for 10seconds 
+      const playButton = await iframeContentFrame.waitForSelector(PLAY_BUTTON_SELECTOR, {
         visible: true,
-        // Attempt to find the selector for 10seconds 
         timeout: 10000
       }).catch(() => null);
 
 
-      // If the play button returns null, then the video is unavailable.
+      // If the play button returns null, then the video is unavailable (delisted or unavailable in this region).
       if (!playButton) {
-        console.log("ToggleVideoPlayingState:", "Video unavailable");
-        io.emit(SOCKET_EVENT_KEYS.error, "Video unavailable");
+        console.log("ToggleVideoPlayingState:", "Video unavailable.");
+        io.emit(SOCKET_EVENT_KEYS.error, "Video unavailable.");
         return;
       }
 
@@ -179,22 +201,26 @@ export async function togglePlayingState(browser: Browser, io: WsServer, videoId
 
       if (htmlJsonButton.includes(PAUSE_TOOLTIP_SELECTOR) && !isPlayingState) {
 
-        await currentPage.keyboard.press("k");
-        console.log("ToggleVideoPlayingState:", "Video paused");
+        playButton.click();
+        console.log("ToggleVideoPlayingState:", "Video paused.");
 
       } else if (htmlJsonButton.includes(PLAY_TOOLTIP_SELECTOR) && isPlayingState) {
-        await currentPage.keyboard.press("k");
-        console.log("ToggleVideoPlayingState:", "Video played");
+
+        playButton.click();
+        console.log("ToggleVideoPlayingState:", "Video played.");
       }
 
     } catch (err: any) {
-      console.log("PauseVideo:", "Something went wrong pausing the youtube video", err);
-      io.emit(SOCKET_EVENT_KEYS.error, "Something went wrong pausing the youtube video");
+      console.log("PauseVideo:", "Something went wrong pausing the youtube video.\n", err);
+      io.emit(SOCKET_EVENT_KEYS.error, "Something went wrong pausing the youtube video.");
+      return 1;
+
     }
   } catch (err: any) {
-    console.log("PauseVideo:", "An error occured", err);
+    console.log("PauseVideo:", "An error occured accessing the browser.\n", err);
+    io.emit(SOCKET_EVENT_KEYS.error, "An error occured accessing the browser.");
+    return 1;
 
-    io.emit(SOCKET_EVENT_KEYS.error, "Internal server error");
   } finally {
     io.emit(SOCKET_EVENT_KEYS.isLoading, false);
   }
