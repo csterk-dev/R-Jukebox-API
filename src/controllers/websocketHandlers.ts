@@ -37,7 +37,7 @@ export function handleSocketConnection(browser: Browser | undefined, io: WsServe
   /**
    * Endpoint to set the current video that is playing.
    */
-  socket.on(SOCKET_EVENT_KEYS.setCurrentVideo, async (incomingVideo) => {
+  socket.on(SOCKET_EVENT_KEYS.setCurrentVideo, async (incomingVideo: Video) => {
     if (browser) {
       console.log("Socket:", "Setting currentVideo", incomingVideo.videoId);
 
