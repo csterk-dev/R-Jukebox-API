@@ -5,6 +5,7 @@
  */
 export const PORT = 3001;
 export const PLAYER_URL = `http://localhost:${PORT}/player`;
+export const PLAYER_VOLUME_DEFAULT = 70.
 /** @deprecated Youtube browser no longer supported. Use `PLAYER_URL` instead for static page player. */
 export const YOUTUBE_BROWSER_WATCH_PAGE_URL = "https://www.youtube.com/watch?v=";
 
@@ -37,27 +38,26 @@ export const SOCKET_EVENT_KEYS = {
   setCurrentVideo: "set-current-video",
   /** Updates the isPlaying boolean state. */
   setIsPlaying: "set-is-playing",
-  /** Updates the volume of the operating system. */
-  setSystemVolume: "set-system-vol",
-  /** Gets the current ooperating system volume level. */
-  systemVolume: "system-vol"
+  /** Updates the volume of the player. */
+  setPlayerVolume: "set-player-vol",
+  /** Gets the current ooperating player volume level. */
+  playerVolume: "player-vol"
 };
 
 /*
  * Puppeteer selector vars 
  */
+export const IFRAME_SELECTOR = `iframe[id="player"]`;
+export const VOLUME_BUTTON_SELECTOR = '.ytp-mute-button';
+export const VOLUME_SLIDER_CONTAINER_SELECTOR = '.ytp-volume-slider';
 export const PLAY_TOOLTIP_SELECTOR = `data-title-no-tooltip="Play"`;
 export const PAUSE_TOOLTIP_SELECTOR = `data-title-no-tooltip="Pause"`;
 export const PLAY_BUTTON_SELECTOR = ".ytp-play-button";
-export const IFRAME_SELECTOR = `iframe[id="player"]`;
 export const TIME_CURRENT_SELECTOR = ".ytp-time-current";
 export const TIME_DURATION_SELECTOR = ".ytp-time-duration";
+export const PLAYER_SLIDER_BOUNDING_WIDTH = 40;
+export const PLAYER_SLIDER_LEVEL_OFFSET = 15;
 // class="ytp-ad-skip-button-modern"
 
 
-/*
- * Operating system vars 
- */
-/** @remarks Ensure front and end values match */
-export const SYSTEM_VOLUME_DEFAULT = 30.
 // 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
