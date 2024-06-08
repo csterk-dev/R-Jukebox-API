@@ -1,6 +1,7 @@
-import { IFRAME_SELECTOR, PAUSE_TOOLTIP_SELECTOR, PLAY_BUTTON_SELECTOR, PLAY_TOOLTIP_SELECTOR, PLAYER_SLIDER_BOUNDING_WIDTH, PLAYER_SLIDER_LEVEL_OFFSET, PLAYER_URL, SOCKET_EVENT_KEYS, TIME_CURRENT_SELECTOR, TIME_DURATION_SELECTOR, VOLUME_BUTTON_SELECTOR, VOLUME_SLIDER_CONTAINER_SELECTOR } from "../constants";
+import { IFRAME_SELECTOR, PAUSE_TOOLTIP_SELECTOR, PLAY_BUTTON_SELECTOR, PLAY_TOOLTIP_SELECTOR, PLAYER_SLIDER_BOUNDING_WIDTH, PLAYER_SLIDER_LEVEL_OFFSET, PLAYER_URL, SOCKET_EVENT_KEYS, TIME_CURRENT_SELECTOR, TIME_DURATION_SELECTOR, TIMELINE_SELECTOR, VOLUME_BUTTON_SELECTOR, VOLUME_SLIDER_CONTAINER_SELECTOR } from "../constants";
 import puppeteer, { Browser, Frame, Page } from "puppeteer";
 import { Server as WsServer } from "socket.io";
+import { formatPlayerTimeStringToSeconds } from "../utils";
 
 /**
  * Launches a puppeteer browser instance and intialises any puppeteer routes.
@@ -241,8 +242,8 @@ export async function checkForEndOfVideo(currentPage: Page, io: WsServer) {
       return 1;
     }
 
-    const currentTimeSec = parseTime(currentTime);
-    const durationTimeSec = parseTime(durationTime);
+    const currentTimeSec = formatPlayerTimeStringToSeconds(currentTime);
+    const durationTimeSec = formatPlayerTimeStringToSeconds(durationTime);
 
     /** To account for the scenario where the current time is slightly less than the duration time but the video has essentially finished playing (e.g. 1:27/1:29). */
     const toleranceSec = 2;
@@ -270,8 +271,8 @@ export async function checkForEndOfVideo(currentPage: Page, io: WsServer) {
  * 
  * @param browser The current puppeteer browser instance.
  * @param io The current server.
- * @param videoId The video to play.
- * @param level The new level to set to the player.
+ * @param videoId The current video.
+ * @param level The new level (0-100) to set to the player .
  * @returns An exit code: error == 1, OK == 0.
  */
 export async function adjustPlayerVolume(browser: Browser, io: WsServer, videoId: string, level: number): Promise<0 | 1> {
@@ -322,6 +323,63 @@ export async function adjustPlayerVolume(browser: Browser, io: WsServer, videoId
 
 
 /**
+ * Updates the player's current progress.
+ * 
+ * @param browser The current puppeteer browser instance.
+ * @param io The current server.
+ * @param videoId The current video.
+ * @param durationSeconds The duration of the current video.
+ * @param newTimeSeconds The new time to set.
+ * @returns An exit code: error == 1, OK == 0.
+ */
+export async function adjustPlayerProgress(browser: Browser, io: WsServer, videoId: string, durationSeconds: number, newTimeSeconds: number): Promise<0 | 1> {
+  try {
+    const currentPage = await getPlayerPage(browser, videoId);
+
+    if (!currentPage) {
+      console.log("adjustPlayerProgress", "Cannot find current video.");
+      io.emit(SOCKET_EVENT_KEYS.error, "Cannot find current video.");
+      return 1;
+    }
+
+    try {
+      // Get the player iframe so we can interact with it
+      const iframeElementHandle = await currentPage.$(IFRAME_SELECTOR);
+      if (!iframeElementHandle) {
+        console.log("adjustPlayerProgress:", "Iframe not ready.");
+        io.emit(SOCKET_EVENT_KEYS.error, "Iframe not ready.");
+        return 1;
+      }
+
+      const iframeContentFrame = await iframeElementHandle.contentFrame();
+
+      // Don't allow any incorrect values to be set
+      if (newTimeSeconds > durationSeconds || newTimeSeconds < 0) return 1;
+
+      const exitCode = await setPlayerProgress(currentPage, iframeContentFrame, durationSeconds, newTimeSeconds);
+      if (exitCode === 1) {
+        console.log("adjustPlayerProgress:", "Unable to set new progress time.");
+        io.emit(SOCKET_EVENT_KEYS.error, "Unable to set new progress time.");
+        return 1;
+      }
+
+      return 0;
+
+    } catch (err: any) {
+      console.log("adjustPlayerProgress:", "An error occured adjusting the player's progress.\n", err);
+      io.emit(SOCKET_EVENT_KEYS.error, "An error occured adjusting the player's progress.");
+      return 1;
+    }
+
+  } catch (err: any) {
+    console.log("adjustPlayerProgress:", "An error occured accessing the browser.\n", err);
+    io.emit(SOCKET_EVENT_KEYS.error, "An error occured accessing the browser.");
+    return 1;
+  }
+}
+
+
+/**
  * Interacts with the player to set a new volume level.
  * @param currentPage The current player page.
  * @param iframeContentFrame The iframe of the player.
@@ -352,6 +410,34 @@ async function setPlayerVolume(currentPage: Page, iframeContentFrame: Frame, lev
 
 
 /**
+ * Interacts with the player to set a new current time.
+ * @param currentPage The current player page.
+ * @param iframeContentFrame The iframe of the player.
+ * @param level The new level.
+ * @returns An exit code: error == 1, OK == 0.
+ */
+async function setPlayerProgress(currentPage: Page, iframeContentFrame: Frame, durationSeconds: number, newTimeSeconds: number): Promise<0 | 1> {
+  
+  const timelineSliderContainer = await iframeContentFrame.$(TIMELINE_SELECTOR);
+  
+  const boundingBox = await timelineSliderContainer?.boundingBox();
+  if (!boundingBox) {
+    return 1;
+  }
+
+  // Calculate the position to set the volume
+  const progressPosition = boundingBox.x + (boundingBox.width * (newTimeSeconds / durationSeconds));
+
+  // Simulate the mouse drag to set the volume
+  await currentPage.mouse.move(progressPosition, boundingBox.y + boundingBox.height / 2, { steps: 10 });
+  await currentPage.mouse.down();
+  await currentPage.mouse.up();
+  return 0;
+}
+
+
+
+/**
  * Returns the player page of the current video, or null.
  * @param browser The current puppeteer browser instance.
  * @param videoId The id of the current video.
@@ -374,14 +460,3 @@ export async function getPlayerPage(browser: Browser, videoId: string): Promise<
   if (!playerPage) return undefined;
   return playerPage;
 }
-
-
-/** 
- * Convert time from "MM:SS" or "HH:MM:SS" to seconds
- */
-const parseTime = (timeStr: string) => {
-  const parts = timeStr.split(":").map(Number);
-  return parts.length === 3 ?
-    parts[0] * 3600 + parts[1] * 60 + parts[2] :
-    parts[0] * 60 + parts[1];
-};
