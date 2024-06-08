@@ -417,9 +417,6 @@ async function setPlayerVolume(currentPage: Page, iframeContentFrame: Frame, lev
  */
 async function setPlayerProgress(currentPage: Page, iframeContentFrame: Frame, durationSeconds: number, newTimeSeconds: number): Promise<0 | 1> {
   
-  // Find the volume slider container
-  // const volumeButton = await iframeContentFrame.waitForSelector(VOLUME_BUTTON_SELECTOR);
-  // volumeButton?.hover();
   const timelineSliderContainer = await iframeContentFrame.$(TIMELINE_SELECTOR);
   
   const boundingBox = await timelineSliderContainer?.boundingBox();
