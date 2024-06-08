@@ -1,17 +1,17 @@
-import { checkForEndOfVideo, playVideo, togglePlayingState } from "../services/puppeteer";
-import { PLAYER_URL, SOCKET_EVENT_KEYS, SYSTEM_VOLUME_DEFAULT } from "../constants";
+import { adjustPlayerVolume, checkForEndOfVideo, getPlayerPage, playVideo, togglePlayingState } from "../services/puppeteer";
+import { PLAYER_VOLUME_DEFAULT, SOCKET_EVENT_KEYS } from "../constants";
 import { Socket, Server as WsServer } from "socket.io";
-import { Browser, Page } from "puppeteer";
+import { Browser } from "puppeteer";
 
 
 /*
  * The current video state
  */
+let checkVideoInterval: NodeJS.Timeout | undefined;
 let currentVideo: Video | undefined;
 let currentVideoTime: number | undefined;
 let isPlaying: boolean = false;
-let systemVolume: number | undefined = SYSTEM_VOLUME_DEFAULT;
-let checkVideoInterval: NodeJS.Timeout | undefined;
+let playerVolume: number = PLAYER_VOLUME_DEFAULT;
 
 
 /**
@@ -30,18 +30,20 @@ export function handleSocketConnection(browser: Browser | undefined, io: WsServe
       io.to(incomingClientId).emit(SOCKET_EVENT_KEYS.currentVideo, currentVideo);
       io.to(incomingClientId).emit(SOCKET_EVENT_KEYS.currentVideoTime, currentVideoTime);
       io.to(incomingClientId).emit(SOCKET_EVENT_KEYS.isPlaying, isPlaying);
-      io.to(incomingClientId).emit(SOCKET_EVENT_KEYS.systemVolume, systemVolume);
+      io.to(incomingClientId).emit(SOCKET_EVENT_KEYS.playerVolume, playerVolume);
     }, 200);
   });
+
 
   /**
    * Endpoint to set the current video that is playing.
    */
   socket.on(SOCKET_EVENT_KEYS.setCurrentVideo, async (incomingVideo: Video) => {
-    if (browser) {
+    if (!browser) io.emit(SOCKET_EVENT_KEYS.error, "No browser found. Refresh and try again.");
+    else {
       console.log("Socket:", "Setting currentVideo", incomingVideo.videoId);
 
-      const exitCode = await playVideo(browser, io, incomingVideo.videoId);
+      const exitCode = await playVideo(browser, io, incomingVideo.videoId, playerVolume);
       if (exitCode === 1) return;
 
       currentVideo = incomingVideo;
@@ -54,40 +56,44 @@ export function handleSocketConnection(browser: Browser | undefined, io: WsServe
       if (currentVideo) {
         startCheckForEndOfVideo(browser, io, currentVideo.videoId);
       }
-    } else {
-      io.emit(SOCKET_EVENT_KEYS.error, "No browser found. Refresh and try again.");
-    }
+    } 
   });
+
 
   /**
    * Endpoint to toggle the video playing state.
    */
   socket.on(SOCKET_EVENT_KEYS.setIsPlaying, async (incomingIsPlaying: boolean) => {
-    if (browser && currentVideo) {
-      console.log("Socket: Setting isPlaying", incomingIsPlaying);
-
+    if (!browser) io.emit(SOCKET_EVENT_KEYS.error, "No browser found. Refresh and try again.");
+    else if (!currentVideo) io.emit(SOCKET_EVENT_KEYS.error, `Cannot ${incomingIsPlaying ? "play" : "pause"} while there isn't a current video.`);
+    else {
+      
       const exitCode = await togglePlayingState(browser, io, currentVideo.videoId, incomingIsPlaying);
       if (exitCode === 1) return;
+      console.log("Socket: Setting isPlaying", incomingIsPlaying);
 
       isPlaying = incomingIsPlaying;
 
       io.emit(SOCKET_EVENT_KEYS.isPlaying, isPlaying);
-    } else {
-      io.emit(SOCKET_EVENT_KEYS.error, "No browser or current video found");
     }
   });
 
+
   /**
-   * Endpoint to update the system volume.
+   * Endpoint to update the player volume.
    */
-  socket.on(SOCKET_EVENT_KEYS.setSystemVolume, async (incomingSystemVol: number) => {
-    if (systemVolume !== incomingSystemVol) {
-      console.log("Socket:", "Setting systemVol", incomingSystemVol);
+  socket.on(SOCKET_EVENT_KEYS.setPlayerVolume, async (incomingPlayerVol: number) => {
+    if (!browser) io.emit(SOCKET_EVENT_KEYS.error, "No browser found.");
+    else if (!currentVideo) io.emit(SOCKET_EVENT_KEYS.error, "Cannot change volume while there isn't a current video.");
+    else if (playerVolume !== incomingPlayerVol) {
+      
+      const exitCode = await adjustPlayerVolume(browser, io, currentVideo.videoId, incomingPlayerVol)
+      if (exitCode === 1) return;
+      console.log("Socket:", "Setting playerVol", incomingPlayerVol);
 
-      // TODO
-      systemVolume = incomingSystemVol;
+      playerVolume = incomingPlayerVol;
 
-      io.emit(SOCKET_EVENT_KEYS.systemVolume, systemVolume);
+      io.emit(SOCKET_EVENT_KEYS.playerVolume, playerVolume);
     }
   });
 }
@@ -101,22 +107,8 @@ export function handleSocketConnection(browser: Browser | undefined, io: WsServe
  * @param io The current server.
  */
 async function startCheckForEndOfVideo(browser: Browser, io: WsServer, videoId: string) {
-  let currentPage: Page | undefined;
-
   try {
-    const pages = await browser.pages();
-    /*
-     * Search through all the currently open pages for a page matching the provided videoId.
-     */
-    if (pages.length > 0) {
-      pages.map(page => {
-        const currentUrl = page.url();
-        if (currentUrl.includes(PLAYER_URL) && currentUrl.includes(videoId)) {
-          currentPage = page;
-          console.log("StartCheckForEndOfVideo:", "videoId found.");
-        }
-      })
-    }
+    const currentPage = await getPlayerPage(browser, videoId);
 
     if (!currentPage) {
       console.log("StartCheckForEndOfVideo", "Cannot find current video.");
@@ -124,31 +116,31 @@ async function startCheckForEndOfVideo(browser: Browser, io: WsServer, videoId: 
       return;
     }
 
-  } catch (err: any) {
-    console.log("StartCheckForEndOfVideo:", "An error occured accessing the browser.\n", err);
-    io.emit(SOCKET_EVENT_KEYS.error, "An error occured accessing the browser.");
-  }
+    if (checkVideoInterval) clearInterval(checkVideoInterval);
 
+    checkVideoInterval = setInterval(async () => {
+      if (currentPage && currentVideo && isPlaying) {
+        const timeState = await checkForEndOfVideo(currentPage, io);
+        if (typeof timeState !== "number") {
+          if (timeState.hasEnded) {
+            currentVideo = undefined;
+            currentVideoTime = 0;
+            isPlaying = false;
+            clearInterval(checkVideoInterval);
+            io.emit(SOCKET_EVENT_KEYS.currentVideo, currentVideo);
+            io.emit(SOCKET_EVENT_KEYS.currentVideoTime, currentVideoTime);
+            io.emit(SOCKET_EVENT_KEYS.isPlaying, isPlaying);
 
-  if (checkVideoInterval) clearInterval(checkVideoInterval);
-
-  checkVideoInterval = setInterval(async () => {
-    if (currentPage && currentVideo && isPlaying) {
-      const timeState = await checkForEndOfVideo(currentPage, io);
-      if (typeof timeState !== "number") {
-        if (timeState.hasEnded) {
-          currentVideo = undefined;
-          isPlaying = false;
-          currentVideoTime = 0;
-          clearInterval(checkVideoInterval);
-          io.emit(SOCKET_EVENT_KEYS.currentVideo, currentVideo);
-          io.emit(SOCKET_EVENT_KEYS.isPlaying, false);
-
-        } else {
-          currentVideoTime = timeState.currentTime;
-          io.emit(SOCKET_EVENT_KEYS.currentVideoTime, currentVideoTime);
+          } else {
+            currentVideoTime = timeState.currentTime;
+            io.emit(SOCKET_EVENT_KEYS.currentVideoTime, currentVideoTime);
+          }
         }
       }
-    }
-  }, 5000);
+    }, 5000);
+
+  } catch (err: any) {
+    console.log("StartCheckForEndOfVideo:", "An error occured while checking the player's current time.\n", err);
+    io.emit(SOCKET_EVENT_KEYS.error, "An error occured while checking the player's current time.");
+  }
 }
