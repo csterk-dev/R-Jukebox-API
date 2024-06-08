@@ -1,7 +1,8 @@
-import { adjustPlayerVolume, checkForEndOfVideo, getPlayerPage, playVideo, togglePlayingState } from "../services/puppeteer";
+import { adjustPlayerProgress, adjustPlayerVolume, checkForEndOfVideo, getPlayerPage, playVideo, togglePlayingState } from "../services/puppeteer";
 import { PLAYER_VOLUME_DEFAULT, SOCKET_EVENT_KEYS } from "../constants";
 import { Socket, Server as WsServer } from "socket.io";
 import { Browser } from "puppeteer";
+import { formatISO8601ToSeconds } from "../utils";
 
 
 /*
@@ -94,6 +95,25 @@ export function handleSocketConnection(browser: Browser | undefined, io: WsServe
       playerVolume = incomingPlayerVol;
 
       io.emit(SOCKET_EVENT_KEYS.playerVolume, playerVolume);
+    }
+  });
+
+
+  /**
+   * Endpoint to update the player progress.
+   */
+  socket.on(SOCKET_EVENT_KEYS.setCurrentVideoTime, async (incomingVideoTime: number) => {
+    if (!browser) io.emit(SOCKET_EVENT_KEYS.error, "No browser found.");
+    else if (!currentVideo) io.emit(SOCKET_EVENT_KEYS.error, "Cannot change the progress while there isn't a current video.");
+    else if (currentVideoTime !== incomingVideoTime) {
+      
+      const exitCode = await adjustPlayerProgress(browser, io, currentVideo.videoId, formatISO8601ToSeconds(currentVideo.duration), incomingVideoTime)
+      if (exitCode === 1) return;
+      console.log("Socket:", "Setting video time", incomingVideoTime);
+
+      currentVideoTime = incomingVideoTime;
+
+      io.emit(SOCKET_EVENT_KEYS.currentVideoTime, currentVideoTime);
     }
   });
 }
