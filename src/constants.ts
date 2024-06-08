@@ -26,7 +26,7 @@ export const SOCKET_EVENT_KEYS = {
   getInitialState: "get-initial-state",
   /** Gets the current video. */
   currentVideo: "current-video",
-  /** THe videos time. */
+  /** The videos time. */
   currentVideoTime: "current-video-time",
   /** Any error values. */
   error: "error",
@@ -36,6 +36,8 @@ export const SOCKET_EVENT_KEYS = {
   isPlaying: "is-playing",
   /** Updates the current video and sets `isPlaying` boolean to true on the server. */
   setCurrentVideo: "set-current-video",
+  /** THe videos time. */
+  setCurrentVideoTime: "set-current-video-time",
   /** Updates the isPlaying boolean state. */
   setIsPlaying: "set-is-playing",
   /** Updates the volume of the player. */
@@ -45,18 +47,19 @@ export const SOCKET_EVENT_KEYS = {
 };
 
 /*
- * Puppeteer selector vars 
+ * Puppeteer vars 
  */
 export const IFRAME_SELECTOR = `iframe[id="player"]`;
-export const VOLUME_BUTTON_SELECTOR = '.ytp-mute-button';
-export const VOLUME_SLIDER_CONTAINER_SELECTOR = '.ytp-volume-slider';
-export const PLAY_TOOLTIP_SELECTOR = `data-title-no-tooltip="Play"`;
 export const PAUSE_TOOLTIP_SELECTOR = `data-title-no-tooltip="Pause"`;
 export const PLAY_BUTTON_SELECTOR = ".ytp-play-button";
-export const TIME_CURRENT_SELECTOR = ".ytp-time-current";
-export const TIME_DURATION_SELECTOR = ".ytp-time-duration";
 export const PLAYER_SLIDER_BOUNDING_WIDTH = 40;
 export const PLAYER_SLIDER_LEVEL_OFFSET = 15;
+export const PLAY_TOOLTIP_SELECTOR = `data-title-no-tooltip="Play"`;
+export const TIME_CURRENT_SELECTOR = ".ytp-time-current";
+export const TIME_DURATION_SELECTOR = ".ytp-time-duration";
+export const TIMELINE_SELECTOR = ".ytp-progress-list";
+export const VOLUME_BUTTON_SELECTOR = '.ytp-mute-button';
+export const VOLUME_SLIDER_CONTAINER_SELECTOR = '.ytp-volume-slider';
 // class="ytp-ad-skip-button-modern"
 
 
