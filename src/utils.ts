@@ -45,3 +45,16 @@ export function formatISO8601ToSeconds(duration: string): number {
 
   return totalSeconds;
 }
+
+
+/** 
+ * Convert time from "MM:SS" or "HH:MM:SS" to seconds
+ * @param timeStr String to parse.
+ * @returns {number} Parsed value in seconds
+ */
+export const formatPlayerTimeStringToSeconds = (timeStr: string) => {
+  const parts = timeStr.split(":").map(Number);
+  return parts.length === 3 ?
+    parts[0] * 3600 + parts[1] * 60 + parts[2] :
+    parts[0] * 60 + parts[1];
+};

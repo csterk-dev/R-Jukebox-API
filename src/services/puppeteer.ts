@@ -1,6 +1,7 @@
 import { IFRAME_SELECTOR, PAUSE_TOOLTIP_SELECTOR, PLAY_BUTTON_SELECTOR, PLAY_TOOLTIP_SELECTOR, PLAYER_SLIDER_BOUNDING_WIDTH, PLAYER_SLIDER_LEVEL_OFFSET, PLAYER_URL, SOCKET_EVENT_KEYS, TIME_CURRENT_SELECTOR, TIME_DURATION_SELECTOR, TIMELINE_SELECTOR, VOLUME_BUTTON_SELECTOR, VOLUME_SLIDER_CONTAINER_SELECTOR } from "../constants";
 import puppeteer, { Browser, Frame, Page } from "puppeteer";
 import { Server as WsServer } from "socket.io";
+import { formatPlayerTimeStringToSeconds } from "../utils";
 
 /**
  * Launches a puppeteer browser instance and intialises any puppeteer routes.
@@ -241,8 +242,8 @@ export async function checkForEndOfVideo(currentPage: Page, io: WsServer) {
       return 1;
     }
 
-    const currentTimeSec = parseTime(currentTime);
-    const durationTimeSec = parseTime(durationTime);
+    const currentTimeSec = formatPlayerTimeStringToSeconds(currentTime);
+    const durationTimeSec = formatPlayerTimeStringToSeconds(durationTime);
 
     /** To account for the scenario where the current time is slightly less than the duration time but the video has essentially finished playing (e.g. 1:27/1:29). */
     const toleranceSec = 2;
@@ -459,16 +460,3 @@ export async function getPlayerPage(browser: Browser, videoId: string): Promise<
   if (!playerPage) return undefined;
   return playerPage;
 }
-
-
-/** 
- * Convert time from "MM:SS" or "HH:MM:SS" to seconds
- */
-const parseTime = (timeStr: string) => {
-  const parts = timeStr.split(":").map(Number);
-  return parts.length === 3 ?
-    parts[0] * 3600 + parts[1] * 60 + parts[2] :
-    parts[0] * 60 + parts[1];
-};
-
-
