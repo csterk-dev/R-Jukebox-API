@@ -14,6 +14,7 @@ export async function initialsePuppeteerBrowser() {
       timeout: 3600000,
       headless: false,
       // args: ["--start-windowed"],
+      args: ["--disable-features=site-per-process"],
       defaultViewport: null
       // executablePath: "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
     });
@@ -77,9 +78,6 @@ export async function playVideo(browser: Browser, io: WsServer, videoId: string,
 
       const iFrame = await iframeElementHandle.contentFrame();
 
-      // Ensure the player has the correct volume
-      const volExitCode = await setPlayerVolume(currentPage, iFrame, playerVolume);
-      console.log(volExitCode);
       // Attempt to find the selector for 10seconds
       const playButton = await iFrame.waitForSelector(PLAY_BUTTON_SELECTOR, {
         visible: true,
@@ -100,6 +98,14 @@ export async function playVideo(browser: Browser, io: WsServer, videoId: string,
        */
       const outerHTML = await playButton.getProperty("outerHTML");
       const htmlJsonButton = await outerHTML.jsonValue();
+      
+      // Ensure the player has the correct volume
+      await playButton.hover(); 
+
+      const volExitCode = await setPlayerVolume(currentPage, iFrame, playerVolume);
+      if (volExitCode === 1) {
+        io.emit(SOCKET_EVENT_KEYS.error, `Unable to set initial player volume to: ${playerVolume}%.`);
+      }
 
       if (htmlJsonButton.includes(PLAY_TOOLTIP_SELECTOR)) {
         playButton.click();
