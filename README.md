@@ -7,10 +7,10 @@ Built using Socket.IO and Express.js, this repository contains the backend serve
 ---
 ## 📀 Technologies used
 
+* Socket.IO
+* Puppeteer
 * Express.js
 * Express Async Handler
-* Puppeteer
-* Socket.IO
 * Axios
 
 ---
