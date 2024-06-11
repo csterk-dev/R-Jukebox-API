@@ -1,7 +1,7 @@
-import { adjustPlayerProgress, adjustPlayerVolume, checkForEndOfVideo, getPlayerPage, playVideo, togglePlayingState } from "../services/puppeteer";
+import { adjustPlayerProgress, adjustPlayerVolume, checkForEndOfVideo, playVideo, togglePlayingState } from "../services/puppeteer";
 import { PLAYER_VOLUME_DEFAULT, SOCKET_EVENT_KEYS } from "../constants";
 import { Socket, Server as WsServer } from "socket.io";
-import { Browser } from "puppeteer";
+import { Browser, Frame, Page } from "puppeteer";
 import { formatISO8601ToSeconds } from "../utils";
 
 
@@ -9,9 +9,11 @@ import { formatISO8601ToSeconds } from "../utils";
  * The current video state
  */
 let checkVideoInterval: NodeJS.Timeout | undefined;
+let currentPage: Page | null;
 let currentVideo: Video | undefined;
 let currentVideoTime: number | undefined;
 let isPlaying: boolean = false;
+let playerFrame: Frame | null;
 let playerVolume: number = PLAYER_VOLUME_DEFAULT;
 
 
@@ -44,20 +46,22 @@ export function handleSocketConnection(browser: Browser | undefined, io: WsServe
     else {
       console.log("Socket:", "Setting currentVideo", incomingVideo.videoId);
 
-      const exitCode = await playVideo(browser, io, incomingVideo.videoId, playerVolume);
-      if (exitCode === 1) return;
+      const playerElements = await playVideo(browser, io, incomingVideo.videoId, playerVolume);
+      if (!playerElements) return;
 
+      currentPage = playerElements.currentPage;
+      playerFrame = playerElements.iFrame;
       currentVideo = incomingVideo;
+      currentVideoTime = 0;
       isPlaying = true;
 
       io.emit(SOCKET_EVENT_KEYS.currentVideo, currentVideo);
+      io.emit(SOCKET_EVENT_KEYS.currentVideoTime, currentVideoTime);
       io.emit(SOCKET_EVENT_KEYS.isPlaying, true);
 
-      // Start checking for the end of the video
-      if (currentVideo) {
-        startCheckForEndOfVideo(browser, io, currentVideo.videoId);
-      }
-    } 
+      // Prevent race condition from within `playVideo()` where the youtube elements are animating their visibility and thus not 'visible' to be read yet inside of `startCheckForEndOfVideo()`.
+      setTimeout(() => startCheckForEndOfVideo(io), 2000);
+    }
   });
 
 
@@ -67,9 +71,10 @@ export function handleSocketConnection(browser: Browser | undefined, io: WsServe
   socket.on(SOCKET_EVENT_KEYS.setIsPlaying, async (incomingIsPlaying: boolean) => {
     if (!browser) io.emit(SOCKET_EVENT_KEYS.error, "No browser found. Refresh and try again.");
     else if (!currentVideo) io.emit(SOCKET_EVENT_KEYS.error, `Cannot ${incomingIsPlaying ? "play" : "pause"} while there isn't a current video.`);
+    else if (!playerFrame) io.emit(SOCKET_EVENT_KEYS.error, "No player iFrame found.");
     else {
-      
-      const exitCode = await togglePlayingState(browser, io, currentVideo.videoId, incomingIsPlaying);
+
+      const exitCode = await togglePlayingState(playerFrame, io, incomingIsPlaying);
       if (exitCode === 1) return;
       console.log("Socket: Setting isPlaying", incomingIsPlaying);
 
@@ -85,10 +90,12 @@ export function handleSocketConnection(browser: Browser | undefined, io: WsServe
    */
   socket.on(SOCKET_EVENT_KEYS.setPlayerVolume, async (incomingPlayerVol: number) => {
     if (!browser) io.emit(SOCKET_EVENT_KEYS.error, "No browser found.");
+    else if (!currentPage) io.emit(SOCKET_EVENT_KEYS.error, "No player page found.");
+    else if (!playerFrame) io.emit(SOCKET_EVENT_KEYS.error, "No player frame found.");
     else if (!currentVideo) io.emit(SOCKET_EVENT_KEYS.error, "Cannot change volume while there isn't a current video.");
     else if (playerVolume !== incomingPlayerVol) {
-      
-      const exitCode = await adjustPlayerVolume(browser, io, currentVideo.videoId, incomingPlayerVol)
+
+      const exitCode = await adjustPlayerVolume(currentPage, playerFrame, io, incomingPlayerVol)
       if (exitCode === 1) return;
       console.log("Socket:", "Setting playerVol", incomingPlayerVol);
 
@@ -104,10 +111,12 @@ export function handleSocketConnection(browser: Browser | undefined, io: WsServe
    */
   socket.on(SOCKET_EVENT_KEYS.setCurrentVideoTime, async (incomingVideoTime: number) => {
     if (!browser) io.emit(SOCKET_EVENT_KEYS.error, "No browser found.");
+    else if (!currentPage) io.emit(SOCKET_EVENT_KEYS.error, "No player page found.");
+    else if (!playerFrame) io.emit(SOCKET_EVENT_KEYS.error, "No player frame found.");
     else if (!currentVideo) io.emit(SOCKET_EVENT_KEYS.error, "Cannot change the progress while there isn't a current video.");
     else if (currentVideoTime !== incomingVideoTime) {
-      
-      const exitCode = await adjustPlayerProgress(browser, io, currentVideo.videoId, formatISO8601ToSeconds(currentVideo.duration), incomingVideoTime)
+
+      const exitCode = await adjustPlayerProgress(currentPage, playerFrame, io, formatISO8601ToSeconds(currentVideo.duration), incomingVideoTime)
       if (exitCode === 1) return;
       console.log("Socket:", "Setting video time", incomingVideoTime);
 
@@ -126,21 +135,13 @@ export function handleSocketConnection(browser: Browser | undefined, io: WsServe
  * @param browser The current puppeteer browser instance.
  * @param io The current server.
  */
-async function startCheckForEndOfVideo(browser: Browser, io: WsServer, videoId: string) {
+function startCheckForEndOfVideo(io: WsServer) {
   try {
-    const currentPage = await getPlayerPage(browser, videoId);
-
-    if (!currentPage) {
-      console.log("StartCheckForEndOfVideo", "Cannot find current video.");
-      io.emit(SOCKET_EVENT_KEYS.error, "Cannot find current video.");
-      return;
-    }
-
     if (checkVideoInterval) clearInterval(checkVideoInterval);
 
     checkVideoInterval = setInterval(async () => {
-      if (currentPage && currentVideo && isPlaying) {
-        const timeState = await checkForEndOfVideo(currentPage, io);
+      if (currentPage && currentVideo && isPlaying && playerFrame) {
+        const timeState = await checkForEndOfVideo(playerFrame, io);
         if (typeof timeState !== "number") {
           if (timeState.hasEnded) {
             currentVideo = undefined;
