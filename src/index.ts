@@ -29,7 +29,7 @@ const aliveMessage = `The server is running on port ${PORT}, on platform ${osPla
  * Initialise server endpoints, puppeteer instance and player page.
  */
 (async () => {
-  browser = await initialsePuppeteerBrowser();
+  browser = await initialsePuppeteerBrowser(osPlatform);
 })();
 app.get("/", (req, res) => res.status(200).send({ message: aliveMessage }));
 app.get("/player/:videoId", (req, res) => res.sendFile(path.join(__dirname, "../public", "player.html")));

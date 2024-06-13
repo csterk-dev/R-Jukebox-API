@@ -7,7 +7,7 @@ import { formatPlayerTimeStringToSeconds } from "../utils";
  * Launches a puppeteer browser instance and intialises any puppeteer routes.
  * @returns {Promise<Browser | undefined>} A promise containing the current puppeteer browser instance, or undefined.
  */
-export async function initialsePuppeteerBrowser() {
+export async function initialsePuppeteerBrowser(osPlatform: NodeJS.Platform) {
   try {
     const browser = await puppeteer.launch({
       // Set timeout to be 24h to try and prevent `Requesting main frame too early!` error.
@@ -15,8 +15,9 @@ export async function initialsePuppeteerBrowser() {
       headless: false,
       // args: ["--start-windowed"],
       args: ["--disable-features=site-per-process"],
-      defaultViewport: null
-      // executablePath: "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
+      defaultViewport: null,
+      pipe: true,
+      executablePath: osPlatform === "linux" ? "/usr/bin/chromium-browser" : undefined
     });
 
     if (!browser) {
@@ -98,9 +99,9 @@ export async function playVideo(browser: Browser, io: WsServer, videoId: string,
        */
       const outerHTML = await playButton.getProperty("outerHTML");
       const htmlJsonButton = await outerHTML.jsonValue();
-      
+
       // Ensure the player has the correct volume
-      await playButton.hover(); 
+      await playButton.hover();
 
       const volExitCode = await setPlayerVolume(currentPage, iFrame, playerVolume);
       if (volExitCode === 1) {
@@ -183,8 +184,8 @@ export async function togglePlayingState(iFrame: Frame, io: WsServer, isPlayingS
     return 0;
 
   } catch (err: any) {
-    console.log("PauseVideo:", "Something went wrong pausing the youtube video.\n", err);
-    io.emit(SOCKET_EVENT_KEYS.error, "Something went wrong pausing the youtube video.");
+    console.log("ToggleVideoPlayingState:", `Something went wrong ${isPlayingState ? "resuming" : "pausing"} the video.\n`, err);
+    io.emit(SOCKET_EVENT_KEYS.error, `Something went wrong ${isPlayingState ? "resuming" : "pausing"} the video.`);
     return 1;
 
   }
