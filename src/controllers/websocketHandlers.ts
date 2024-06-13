@@ -8,13 +8,25 @@ import { formatISO8601ToSeconds } from "../utils";
 /*
  * The current video state
  */
-let checkVideoInterval: NodeJS.Timeout | undefined;
-let currentPage: Page | null;
-let currentVideo: Video | undefined;
-let currentVideoTime: number | undefined;
-let isPlaying: boolean = false;
-let playerFrame: Frame | null;
-let playerVolume: number = PLAYER_VOLUME_DEFAULT;
+type StateVars = {
+  checkVideoInterval: NodeJS.Timeout | undefined;
+  currentPage: Page | null;
+  currentVideo: Video | undefined;
+  currentVideoTime: number | undefined;
+  isPlaying: boolean;
+  playerFrame: Frame | null;
+  playerVolume: number;
+}
+
+const state: StateVars = {
+  checkVideoInterval: undefined,
+  currentPage: null,
+  currentVideo: undefined,
+  currentVideoTime: undefined,
+  isPlaying: false,
+  playerFrame:  null,
+  playerVolume: PLAYER_VOLUME_DEFAULT
+}
 
 
 /**
@@ -30,10 +42,10 @@ export function handleSocketConnection(browser: Browser | undefined, io: WsServe
    */
   socket.on(SOCKET_EVENT_KEYS.getInitialState, (incomingClientId) => {
     setTimeout(() => {
-      io.to(incomingClientId).emit(SOCKET_EVENT_KEYS.currentVideo, currentVideo);
-      io.to(incomingClientId).emit(SOCKET_EVENT_KEYS.currentVideoTime, currentVideoTime);
-      io.to(incomingClientId).emit(SOCKET_EVENT_KEYS.isPlaying, isPlaying);
-      io.to(incomingClientId).emit(SOCKET_EVENT_KEYS.playerVolume, playerVolume);
+      io.to(incomingClientId).emit(SOCKET_EVENT_KEYS.currentVideo, state.currentVideo);
+      io.to(incomingClientId).emit(SOCKET_EVENT_KEYS.currentVideoTime, state.currentVideoTime);
+      io.to(incomingClientId).emit(SOCKET_EVENT_KEYS.isPlaying, state.isPlaying);
+      io.to(incomingClientId).emit(SOCKET_EVENT_KEYS.playerVolume, state.playerVolume);
     }, 200);
   });
 
@@ -46,17 +58,20 @@ export function handleSocketConnection(browser: Browser | undefined, io: WsServe
     else {
       console.log("Socket:", "Setting currentVideo", incomingVideo.videoId);
 
-      const playerElements = await playVideo(browser, io, incomingVideo.videoId, playerVolume);
+      state.currentVideoTime = 0;
+      io.emit(SOCKET_EVENT_KEYS.currentVideoTime, state.currentVideoTime);
+
+      if (state.checkVideoInterval) clearInterval(state.checkVideoInterval);
+      
+      const playerElements = await playVideo(browser, io, incomingVideo.videoId, state.playerVolume);
       if (!playerElements) return;
 
-      currentPage = playerElements.currentPage;
-      playerFrame = playerElements.iFrame;
-      currentVideo = incomingVideo;
-      currentVideoTime = 0;
-      isPlaying = true;
+      state.currentPage = playerElements.currentPage;
+      state.playerFrame = playerElements.iFrame;
+      state.currentVideo = incomingVideo;
+      state.isPlaying = true;
 
-      io.emit(SOCKET_EVENT_KEYS.currentVideo, currentVideo);
-      io.emit(SOCKET_EVENT_KEYS.currentVideoTime, currentVideoTime);
+      io.emit(SOCKET_EVENT_KEYS.currentVideo, state.currentVideo);
       io.emit(SOCKET_EVENT_KEYS.isPlaying, true);
 
       // Prevent race condition from within `playVideo()` where the youtube elements are animating their visibility and thus not 'visible' to be read yet inside of `startCheckForEndOfVideo()`.
@@ -70,17 +85,17 @@ export function handleSocketConnection(browser: Browser | undefined, io: WsServe
    */
   socket.on(SOCKET_EVENT_KEYS.setIsPlaying, async (incomingIsPlaying: boolean) => {
     if (!browser) io.emit(SOCKET_EVENT_KEYS.error, "No browser found. Refresh and try again.");
-    else if (!currentVideo) io.emit(SOCKET_EVENT_KEYS.error, `Cannot ${incomingIsPlaying ? "play" : "pause"} while there isn't a current video.`);
-    else if (!playerFrame) io.emit(SOCKET_EVENT_KEYS.error, "No player iFrame found.");
+    else if (!state.currentVideo) io.emit(SOCKET_EVENT_KEYS.error, `Cannot ${incomingIsPlaying ? "play" : "pause"} while there isn't a current video.`);
+    else if (!state.playerFrame) io.emit(SOCKET_EVENT_KEYS.error, "No player iFrame found.");
     else {
 
-      const exitCode = await togglePlayingState(playerFrame, io, incomingIsPlaying);
+      const exitCode = await togglePlayingState(state.playerFrame, io, incomingIsPlaying);
       if (exitCode === 1) return;
       console.log("Socket: Setting isPlaying", incomingIsPlaying);
 
-      isPlaying = incomingIsPlaying;
+      state.isPlaying = incomingIsPlaying;
 
-      io.emit(SOCKET_EVENT_KEYS.isPlaying, isPlaying);
+      io.emit(SOCKET_EVENT_KEYS.isPlaying, state.isPlaying);
     }
   });
 
@@ -90,18 +105,18 @@ export function handleSocketConnection(browser: Browser | undefined, io: WsServe
    */
   socket.on(SOCKET_EVENT_KEYS.setPlayerVolume, async (incomingPlayerVol: number) => {
     if (!browser) io.emit(SOCKET_EVENT_KEYS.error, "No browser found.");
-    else if (!currentPage) io.emit(SOCKET_EVENT_KEYS.error, "No player page found.");
-    else if (!playerFrame) io.emit(SOCKET_EVENT_KEYS.error, "No player frame found.");
-    else if (!currentVideo) io.emit(SOCKET_EVENT_KEYS.error, "Cannot change volume while there isn't a current video.");
-    else if (playerVolume !== incomingPlayerVol) {
+    else if (!state.currentPage) io.emit(SOCKET_EVENT_KEYS.error, "No player page found.");
+    else if (!state.playerFrame) io.emit(SOCKET_EVENT_KEYS.error, "No player frame found.");
+    else if (!state.currentVideo) io.emit(SOCKET_EVENT_KEYS.error, "Cannot change volume while there isn't a current video.");
+    else if (state.playerVolume !== incomingPlayerVol) {
 
-      const exitCode = await adjustPlayerVolume(currentPage, playerFrame, io, incomingPlayerVol)
+      const exitCode = await adjustPlayerVolume(state.currentPage, state.playerFrame, io, incomingPlayerVol)
       if (exitCode === 1) return;
       console.log("Socket:", "Setting playerVol", incomingPlayerVol);
 
-      playerVolume = incomingPlayerVol;
+      state.playerVolume = incomingPlayerVol;
 
-      io.emit(SOCKET_EVENT_KEYS.playerVolume, playerVolume);
+      io.emit(SOCKET_EVENT_KEYS.playerVolume, state.playerVolume);
     }
   });
 
@@ -111,18 +126,18 @@ export function handleSocketConnection(browser: Browser | undefined, io: WsServe
    */
   socket.on(SOCKET_EVENT_KEYS.setCurrentVideoTime, async (incomingVideoTime: number) => {
     if (!browser) io.emit(SOCKET_EVENT_KEYS.error, "No browser found.");
-    else if (!currentPage) io.emit(SOCKET_EVENT_KEYS.error, "No player page found.");
-    else if (!playerFrame) io.emit(SOCKET_EVENT_KEYS.error, "No player frame found.");
-    else if (!currentVideo) io.emit(SOCKET_EVENT_KEYS.error, "Cannot change the progress while there isn't a current video.");
-    else if (currentVideoTime !== incomingVideoTime) {
+    else if (!state.currentPage) io.emit(SOCKET_EVENT_KEYS.error, "No player page found.");
+    else if (!state.playerFrame) io.emit(SOCKET_EVENT_KEYS.error, "No player frame found.");
+    else if (!state.currentVideo) io.emit(SOCKET_EVENT_KEYS.error, "Cannot change the progress while there isn't a current video.");
+    else if (state.currentVideoTime !== incomingVideoTime) {
 
-      const exitCode = await adjustPlayerProgress(currentPage, playerFrame, io, formatISO8601ToSeconds(currentVideo.duration), incomingVideoTime)
+      const exitCode = await adjustPlayerProgress(state.currentPage, state.playerFrame, io, formatISO8601ToSeconds(state.currentVideo.duration), incomingVideoTime)
       if (exitCode === 1) return;
       console.log("Socket:", "Setting video time", incomingVideoTime);
 
-      currentVideoTime = incomingVideoTime;
+      state.currentVideoTime = incomingVideoTime;
 
-      io.emit(SOCKET_EVENT_KEYS.currentVideoTime, currentVideoTime);
+      io.emit(SOCKET_EVENT_KEYS.currentVideoTime, state.currentVideoTime);
     }
   });
 }
@@ -136,25 +151,25 @@ export function handleSocketConnection(browser: Browser | undefined, io: WsServe
  * @param io The current server.
  */
 function startCheckForEndOfVideo(io: WsServer) {
-  try {
-    if (checkVideoInterval) clearInterval(checkVideoInterval);
 
-    checkVideoInterval = setInterval(async () => {
-      if (currentPage && currentVideo && isPlaying && playerFrame) {
-        const timeState = await checkForEndOfVideo(playerFrame, io);
+  try {
+    state.checkVideoInterval = setInterval(async () => {
+      if (state.currentPage && state.currentVideo && state.isPlaying && state.playerFrame) {
+        const timeState = await checkForEndOfVideo(state.playerFrame, io);
         if (typeof timeState !== "number") {
           if (timeState.hasEnded) {
-            currentVideo = undefined;
-            currentVideoTime = 0;
-            isPlaying = false;
-            clearInterval(checkVideoInterval);
-            io.emit(SOCKET_EVENT_KEYS.currentVideo, currentVideo);
-            io.emit(SOCKET_EVENT_KEYS.currentVideoTime, currentVideoTime);
-            io.emit(SOCKET_EVENT_KEYS.isPlaying, isPlaying);
+            clearInterval(state.checkVideoInterval);
+
+            state.currentVideo = undefined;
+            state.currentVideoTime = 0;
+            state.isPlaying = false;
+            io.emit(SOCKET_EVENT_KEYS.currentVideo, state.currentVideo);
+            io.emit(SOCKET_EVENT_KEYS.currentVideoTime, state.currentVideoTime);
+            io.emit(SOCKET_EVENT_KEYS.isPlaying, state.isPlaying);
 
           } else {
-            currentVideoTime = timeState.currentTime;
-            io.emit(SOCKET_EVENT_KEYS.currentVideoTime, currentVideoTime);
+            state.currentVideoTime = timeState.currentTime;
+            io.emit(SOCKET_EVENT_KEYS.currentVideoTime, state.currentVideoTime);
           }
         }
       }
