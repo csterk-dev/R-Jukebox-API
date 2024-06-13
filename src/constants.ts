@@ -61,6 +61,3 @@ export const TIMELINE_SELECTOR = ".ytp-progress-list";
 export const VOLUME_BUTTON_SELECTOR = '.ytp-mute-button';
 export const VOLUME_SLIDER_CONTAINER_SELECTOR = '.ytp-volume-slider';
 // class="ytp-ad-skip-button-modern"
-
-
-// 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

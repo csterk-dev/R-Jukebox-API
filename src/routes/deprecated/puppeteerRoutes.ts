@@ -5,6 +5,8 @@ import { initialsePuppeteerBrowser } from "../../services/puppeteer";
 
 // Simple middleware for handling exceptions inside of async express routes and passing them to your express error handlers.
 import asyncHandler from "express-async-handler"
+import { platform } from "os";
+const osPlatform = platform();
 
 
 /**
@@ -14,7 +16,7 @@ async function PlayerRouter(app: Express) {
   try {
     // Setup router to handle puppeteer requests and initialise puppeteer
     const playerRouter = express.Router();
-    const browser = await initialsePuppeteerBrowser();
+    const browser = await initialsePuppeteerBrowser(osPlatform);
 
     try {
 
