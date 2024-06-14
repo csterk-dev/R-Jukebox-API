@@ -56,16 +56,16 @@ export function handleSocketConnection(browser: Browser | undefined, io: WsServe
   socket.on(SOCKET_EVENT_KEYS.setCurrentVideo, async (incomingVideo: Video) => {
     if (!browser) io.emit(SOCKET_EVENT_KEYS.error, "No browser found. Refresh and try again.");
     else {
-      console.log("Socket:", "Setting currentVideo", incomingVideo.videoId);
-
       state.currentVideoTime = 0;
       io.emit(SOCKET_EVENT_KEYS.currentVideoTime, state.currentVideoTime);
-
+      
       if (state.checkVideoInterval) clearInterval(state.checkVideoInterval);
       
       const playerElements = await playVideo(browser, io, incomingVideo.videoId, state.playerVolume);
       if (!playerElements) return;
-
+      
+      console.log("Socket:", "Setting currentVideo", incomingVideo.videoId);
+      
       state.currentPage = playerElements.currentPage;
       state.playerFrame = playerElements.iFrame;
       state.currentVideo = incomingVideo;
