@@ -52,7 +52,8 @@ export const SOCKET_EVENT_KEYS = {
 export const IFRAME_SELECTOR = `iframe[id="player"]`;
 export const PAUSE_TOOLTIP_SELECTOR = `data-title-no-tooltip="Pause"`;
 export const PLAY_BUTTON_SELECTOR = ".ytp-play-button";
-export const PLAYER_SLIDER_BOUNDING_WIDTH = 40;
+export const PLAYER_VOLUME_SLIDER_BOUNDING_WIDTH = 40;
+export const PLAYER_PROGRESS_SLIDER_BOUNDING_WIDTH = 616;
 export const PLAYER_SLIDER_LEVEL_OFFSET = 15;
 export const PLAY_TOOLTIP_SELECTOR = `data-title-no-tooltip="Play"`;
 export const TIME_CURRENT_SELECTOR = ".ytp-time-current";

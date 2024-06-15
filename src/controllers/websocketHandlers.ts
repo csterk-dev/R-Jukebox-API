@@ -40,7 +40,7 @@ export function handleSocketConnection(browser: Browser | undefined, io: WsServe
   /**
    * Send the current state of the player to the newly connect client.
    */
-  socket.on(SOCKET_EVENT_KEYS.getInitialState, (incomingClientId) => {
+  socket.on(SOCKET_EVENT_KEYS.getInitialState, (incomingClientId: string) => {
     setTimeout(() => {
       io.to(incomingClientId).emit(SOCKET_EVENT_KEYS.currentVideo, state.currentVideo);
       io.to(incomingClientId).emit(SOCKET_EVENT_KEYS.currentVideoTime, state.currentVideoTime);
@@ -83,13 +83,13 @@ export function handleSocketConnection(browser: Browser | undefined, io: WsServe
   /**
    * Endpoint to toggle the video playing state.
    */
-  socket.on(SOCKET_EVENT_KEYS.setIsPlaying, async (incomingIsPlaying: boolean) => {
+  socket.on(SOCKET_EVENT_KEYS.setIsPlaying, async (incomingClientId: string, incomingIsPlaying: boolean) => {
     if (!browser) io.emit(SOCKET_EVENT_KEYS.error, "No browser found. Refresh and try again.");
     else if (!state.currentVideo) io.emit(SOCKET_EVENT_KEYS.error, `Cannot ${incomingIsPlaying ? "play" : "pause"} while there isn't a current video.`);
     else if (!state.playerFrame) io.emit(SOCKET_EVENT_KEYS.error, "No player iFrame found.");
     else {
 
-      const exitCode = await togglePlayingState(state.playerFrame, io, incomingIsPlaying);
+      const exitCode = await togglePlayingState(io, incomingClientId, state.playerFrame, incomingIsPlaying);
       if (exitCode === 1) return;
       console.log("Socket: Setting isPlaying", incomingIsPlaying);
 
@@ -103,14 +103,14 @@ export function handleSocketConnection(browser: Browser | undefined, io: WsServe
   /**
    * Endpoint to update the player volume.
    */
-  socket.on(SOCKET_EVENT_KEYS.setPlayerVolume, async (incomingPlayerVol: number) => {
+  socket.on(SOCKET_EVENT_KEYS.setPlayerVolume, async (incomingClientId: string, incomingPlayerVol: number) => {
     if (!browser) io.emit(SOCKET_EVENT_KEYS.error, "No browser found.");
     else if (!state.currentPage) io.emit(SOCKET_EVENT_KEYS.error, "No player page found.");
     else if (!state.playerFrame) io.emit(SOCKET_EVENT_KEYS.error, "No player frame found.");
     else if (!state.currentVideo) io.emit(SOCKET_EVENT_KEYS.error, "Cannot change volume while there isn't a current video.");
     else if (state.playerVolume !== incomingPlayerVol) {
 
-      const exitCode = await adjustPlayerVolume(state.currentPage, state.playerFrame, io, incomingPlayerVol)
+      const exitCode = await adjustPlayerVolume(io, incomingClientId, state.currentPage, state.playerFrame, incomingPlayerVol)
       if (exitCode === 1) return;
       console.log("Socket:", "Setting playerVol", incomingPlayerVol);
 
@@ -124,14 +124,14 @@ export function handleSocketConnection(browser: Browser | undefined, io: WsServe
   /**
    * Endpoint to update the player progress.
    */
-  socket.on(SOCKET_EVENT_KEYS.setCurrentVideoTime, async (incomingVideoTime: number) => {
+  socket.on(SOCKET_EVENT_KEYS.setCurrentVideoTime, async (incomingClientId: string, incomingVideoTime: number) => {
     if (!browser) io.emit(SOCKET_EVENT_KEYS.error, "No browser found.");
     else if (!state.currentPage) io.emit(SOCKET_EVENT_KEYS.error, "No player page found.");
     else if (!state.playerFrame) io.emit(SOCKET_EVENT_KEYS.error, "No player frame found.");
     else if (!state.currentVideo) io.emit(SOCKET_EVENT_KEYS.error, "Cannot change the progress while there isn't a current video.");
     else if (state.currentVideoTime !== incomingVideoTime) {
 
-      const exitCode = await adjustPlayerProgress(state.currentPage, state.playerFrame, io, formatISO8601ToSeconds(state.currentVideo.duration), incomingVideoTime)
+      const exitCode = await adjustPlayerProgress(io, incomingClientId, state.currentPage, state.playerFrame, formatISO8601ToSeconds(state.currentVideo.duration), incomingVideoTime)
       if (exitCode === 1) return;
       console.log("Socket:", "Setting video time", incomingVideoTime);
 

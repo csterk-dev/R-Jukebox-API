@@ -1,4 +1,4 @@
-import { IFRAME_SELECTOR, PAUSE_TOOLTIP_SELECTOR, PLAY_BUTTON_SELECTOR, PLAY_TOOLTIP_SELECTOR, PLAYER_SLIDER_BOUNDING_WIDTH, PLAYER_SLIDER_LEVEL_OFFSET, PLAYER_URL, SOCKET_EVENT_KEYS, TIME_CURRENT_SELECTOR, TIME_DURATION_SELECTOR, TIMELINE_SELECTOR, VOLUME_BUTTON_SELECTOR, VOLUME_SLIDER_CONTAINER_SELECTOR } from "../constants";
+import { IFRAME_SELECTOR, PAUSE_TOOLTIP_SELECTOR, PLAY_BUTTON_SELECTOR, PLAY_TOOLTIP_SELECTOR, PLAYER_PROGRESS_SLIDER_BOUNDING_WIDTH, PLAYER_SLIDER_LEVEL_OFFSET, PLAYER_URL, PLAYER_VOLUME_SLIDER_BOUNDING_WIDTH, SOCKET_EVENT_KEYS, TIME_CURRENT_SELECTOR, TIME_DURATION_SELECTOR, TIMELINE_SELECTOR, VOLUME_BUTTON_SELECTOR, VOLUME_SLIDER_CONTAINER_SELECTOR } from "../constants";
 import puppeteer, { Browser, Frame, Page } from "puppeteer";
 import { Server as WsServer } from "socket.io";
 import { formatPlayerTimeStringToSeconds } from "../utils";
@@ -150,7 +150,7 @@ export async function playVideo(browser: Browser, io: WsServer, videoId: string,
  * @param videoId The video to play.
  * @returns An exit code: error == 1, OK == 0.
  */
-export async function togglePlayingState(iFrame: Frame, io: WsServer, isPlayingState: boolean): Promise<0 | 1> {
+export async function togglePlayingState(io: WsServer, incomingClientId: string, iFrame: Frame, isPlayingState: boolean): Promise<0 | 1> {
   try {
     // Attempt to find the selector for 10seconds 
     const playButton = await iFrame.waitForSelector(PLAY_BUTTON_SELECTOR, {
@@ -162,7 +162,7 @@ export async function togglePlayingState(iFrame: Frame, io: WsServer, isPlayingS
     // If the play button returns null, then the video is unavailable (delisted or unavailable in this region).
     if (!playButton) {
       console.log("ToggleVideoPlayingState:", "Video unavailable.");
-      io.emit(SOCKET_EVENT_KEYS.error, "Video unavailable.");
+      io.to(incomingClientId).emit(SOCKET_EVENT_KEYS.error, "Video unavailable.");
       return 1;
     }
 
@@ -185,7 +185,7 @@ export async function togglePlayingState(iFrame: Frame, io: WsServer, isPlayingS
 
   } catch (err: any) {
     console.log("ToggleVideoPlayingState:", `Something went wrong ${isPlayingState ? "resuming" : "pausing"} the video.\n`, err);
-    io.emit(SOCKET_EVENT_KEYS.error, `Something went wrong ${isPlayingState ? "resuming" : "pausing"} the video.`);
+    io.to(incomingClientId).emit(SOCKET_EVENT_KEYS.error, `Something went wrong ${isPlayingState ? "resuming" : "pausing"} the video.`);
     return 1;
 
   }
@@ -254,7 +254,7 @@ export async function checkForEndOfVideo(iFrame: Frame, io: WsServer) {
  * @param level The new level (0-100) to set to the player .
  * @returns An exit code: error == 1, OK == 0.
  */
-export async function adjustPlayerVolume(currentPage: Page, iFrame: Frame, io: WsServer, level: number): Promise<0 | 1> {
+export async function adjustPlayerVolume(io: WsServer, incomingClientId: string, currentPage: Page, iFrame: Frame, level: number): Promise<0 | 1> {
   try {
 
     // Ensure no invalid value can be recieved from the UI
@@ -262,8 +262,8 @@ export async function adjustPlayerVolume(currentPage: Page, iFrame: Frame, io: W
 
     const exitCode = await setPlayerVolume(currentPage, iFrame, levelVal);
     if (exitCode === 1) {
-      console.log("adjustPlayerVolume:", "Unable to set player volume.");
-      io.emit(SOCKET_EVENT_KEYS.error, "Unable to set player volume.");
+      console.log("adjustPlayerVolume:", "Cannot find volume bounding box.");
+      io.to(incomingClientId).emit(SOCKET_EVENT_KEYS.error, "Cannot find volume bounding box.");
       return 1;
     }
 
@@ -271,7 +271,7 @@ export async function adjustPlayerVolume(currentPage: Page, iFrame: Frame, io: W
 
   } catch (err: any) {
     console.log("adjustPlayerVolume:", "An error occured adjusting the player volume.\n", err);
-    io.emit(SOCKET_EVENT_KEYS.error, "An error occured adjusting the player volume.");
+    io.to(incomingClientId).emit(SOCKET_EVENT_KEYS.error, "An error occured adjusting the player volume.");
     return 1;
   }
 }
@@ -287,16 +287,17 @@ export async function adjustPlayerVolume(currentPage: Page, iFrame: Frame, io: W
  * @param newTimeSeconds The new time to set.
  * @returns An exit code: error == 1, OK == 0.
  */
-export async function adjustPlayerProgress(currentPage: Page, iFrame: Frame, io: WsServer, durationSeconds: number, newTimeSeconds: number): Promise<0 | 1> {
+export async function adjustPlayerProgress(io: WsServer, incomingClientId: string, currentPage: Page, iFrame: Frame, durationSeconds: number, newTimeSeconds: number): Promise<0 | 1> {
 
   try {
+    
     // Don't allow any incorrect values to be set
-    if (newTimeSeconds > durationSeconds || newTimeSeconds < 0) return 1;
+    const newTime = newTimeSeconds > durationSeconds ? durationSeconds : newTimeSeconds < 0 ? 0 : newTimeSeconds;
 
-    const exitCode = await setPlayerProgress(currentPage, iFrame, durationSeconds, newTimeSeconds);
+    const exitCode = await setPlayerProgress(currentPage, iFrame, durationSeconds, newTime);
     if (exitCode === 1) {
-      console.log("adjustPlayerProgress:", "Unable to set new progress time.");
-      io.emit(SOCKET_EVENT_KEYS.error, "Unable to set new progress time.");
+      console.log("adjustPlayerProgress:", "Cannot find progress bounding box.");
+      io.to(incomingClientId).emit(SOCKET_EVENT_KEYS.error, "Cannot find progress bounding box.");
       return 1;
     }
 
@@ -304,7 +305,7 @@ export async function adjustPlayerProgress(currentPage: Page, iFrame: Frame, io:
 
   } catch (err: any) {
     console.log("adjustPlayerProgress:", "An error occured adjusting the player's progress.\n", err);
-    io.emit(SOCKET_EVENT_KEYS.error, "An error occured adjusting the player's progress.");
+    io.to(incomingClientId).emit(SOCKET_EVENT_KEYS.error, "An error occured adjusting the player's progress.");
     return 1;
   }
 }
@@ -331,7 +332,7 @@ async function setPlayerVolume(currentPage: Page, iFrame: Frame, level: number):
   }
 
   // Calculate the position to set the volume
-  const volumePosition = boundingBox.x + (PLAYER_SLIDER_BOUNDING_WIDTH * (level + PLAYER_SLIDER_LEVEL_OFFSET) / 100);
+  const volumePosition = boundingBox.x + (PLAYER_VOLUME_SLIDER_BOUNDING_WIDTH * (level + PLAYER_SLIDER_LEVEL_OFFSET) / 100);
 
   // Simulate the mouse drag to set the volume
   await currentPage.mouse.move(volumePosition, boundingBox.y + boundingBox.height / 2, { steps: 10 });
@@ -359,7 +360,7 @@ async function setPlayerProgress(currentPage: Page, iFrame: Frame, durationSecon
   }
 
   // Calculate the position to set the volume
-  const progressPosition = boundingBox.x + (boundingBox.width * (newTimeSeconds / durationSeconds));
+  const progressPosition = boundingBox.x + (PLAYER_PROGRESS_SLIDER_BOUNDING_WIDTH * (newTimeSeconds / durationSeconds));
 
   // Simulate the mouse drag to set the volume
   await currentPage.mouse.move(progressPosition, boundingBox.y + boundingBox.height / 2, { steps: 10 });

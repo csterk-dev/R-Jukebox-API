@@ -54,6 +54,7 @@
       function onYouTubeIframeAPIReady() {
         player = new YT.Player('player', {
           height: '390',
+          // do not change the width of the player here without first updating the 'PLAYER_PROGRESS_SLIDER_BOUNDING_WIDTH' constant.
           width: '640',
           videoId: videoId,
           playerVars: {
