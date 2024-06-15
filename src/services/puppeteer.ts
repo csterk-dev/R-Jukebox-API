@@ -319,9 +319,10 @@ export async function adjustPlayerProgress(currentPage: Page, iFrame: Frame, io:
  */
 async function setPlayerVolume(currentPage: Page, iFrame: Frame, level: number): Promise<0 | 1> {
 
-  // Find the volume slider container
+  // Find the volume slider container and hover the button to make it 'open'
   const volumeButton = await iFrame.waitForSelector(VOLUME_BUTTON_SELECTOR);
-  volumeButton?.hover();
+  volumeButton && volumeButton.hover();
+
   const volumeSliderContainer = await iFrame.$(VOLUME_SLIDER_CONTAINER_SELECTOR);
 
   const boundingBox = await volumeSliderContainer?.boundingBox();
