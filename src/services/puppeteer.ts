@@ -86,7 +86,7 @@ export async function playVideo(browser: Browser, io: WsServer, videoId: string,
       }).catch(() => null);
 
 
-      // If the play button returns null, then the video is unavailable (delisted or unavailable in this region).
+      // If the play button returns null, then the video is unavailable (delisted, unavailable in this region or an error occured loading in the iframe).
       if (!playButton) {
         console.log("PlayVideo:", "Video unavailable.");
         io.emit(SOCKET_EVENT_KEYS.error, "Video unavailable.");
@@ -197,19 +197,17 @@ export async function togglePlayingState(io: WsServer, incomingClientId: string,
  * Checks if the current video playing in the YouTube iframe has ended.
  * 
  * @param iFrame The iframe of the player.
- * @param io - The Socket.io server instance for emitting events to clients.
  * @returns {Promise<{ hasEnded: boolean, currentTime: number, durationTime: number } | number>} 
- * Returns 1 if an error occurs or an object with `hasEnded` and `currentTime` properties.
+ * Returns null if an error occurs or an object with `hasEnded` and `currentTime` properties.
  */
-export async function checkForEndOfVideo(iFrame: Frame, io: WsServer) {
+export async function checkForEndOfVideo(iFrame: Frame) {
   try {
     const currentTimeEl = await iFrame.waitForSelector(TIME_CURRENT_SELECTOR).catch(() => null);
     const durationTimeEl = await iFrame.waitForSelector(TIME_DURATION_SELECTOR).catch(() => null);
 
     if (!currentTimeEl || !durationTimeEl) {
-      console.log("CheckForEndOfVideo:", "Cannot get video duration.");
-      io.emit(SOCKET_EVENT_KEYS.error, "Cannot get video duration.");
-      return 1;
+      console.log("CheckForEndOfVideo:", "Cannot get time elements.");
+      return null;
     }
 
     const currentTime = await iFrame.evaluate(el => el.textContent, currentTimeEl);
@@ -217,8 +215,7 @@ export async function checkForEndOfVideo(iFrame: Frame, io: WsServer) {
 
     if (!currentTime || !durationTime) {
       console.log("CheckForEndOfVideo:", "Cannot read video times.");
-      io.emit(SOCKET_EVENT_KEYS.error, "Cannot read video times.");
-      return 1;
+      return null;
     }
 
     const currentTimeSec = formatPlayerTimeStringToSeconds(currentTime);
@@ -238,9 +235,8 @@ export async function checkForEndOfVideo(iFrame: Frame, io: WsServer) {
     };
 
   } catch (error) {
-    console.error("Error in checkForEndOfVideo:", error);
-    io.emit(SOCKET_EVENT_KEYS.error, "Error checking video status.");
-    return 1;
+    console.error("CheckForEndOfVideo error:\n", error);
+    return null;
   }
 }
 
@@ -290,7 +286,7 @@ export async function adjustPlayerVolume(io: WsServer, incomingClientId: string,
 export async function adjustPlayerProgress(io: WsServer, incomingClientId: string, currentPage: Page, iFrame: Frame, durationSeconds: number, newTimeSeconds: number): Promise<0 | 1> {
 
   try {
-    
+
     // Don't allow any incorrect values to be set
     const newTime = newTimeSeconds > durationSeconds ? durationSeconds : newTimeSeconds < 0 ? 0 : newTimeSeconds;
 
