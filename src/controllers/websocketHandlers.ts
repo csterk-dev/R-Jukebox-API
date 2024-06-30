@@ -24,7 +24,7 @@ const state: StateVars = {
   currentVideo: undefined,
   currentVideoTime: undefined,
   isPlaying: false,
-  playerFrame:  null,
+  playerFrame: null,
   playerVolume: PLAYER_VOLUME_DEFAULT
 }
 
@@ -58,14 +58,14 @@ export function handleSocketConnection(browser: Browser | undefined, io: WsServe
     else {
       state.currentVideoTime = 0;
       io.emit(SOCKET_EVENT_KEYS.currentVideoTime, state.currentVideoTime);
-      
+
       if (state.checkVideoInterval) clearInterval(state.checkVideoInterval);
-      
+
       const playerElements = await playVideo(browser, io, incomingVideo.videoId, state.playerVolume);
       if (!playerElements) return;
-      
+
       console.log("Socket:", "Setting currentVideo", incomingVideo.videoId);
-      
+
       state.currentPage = playerElements.currentPage;
       state.playerFrame = playerElements.iFrame;
       state.currentVideo = incomingVideo;
@@ -146,33 +146,45 @@ export function handleSocketConnection(browser: Browser | undefined, io: WsServe
 
 /**
  * Function that checks the current time and duration while the current video is playing to determine if the video has ended.
- * 
- * @param browser The current puppeteer browser instance.
  * @param io The current server.
  */
 function startCheckForEndOfVideo(io: WsServer) {
 
+  const clearState = () => {
+    console.log("StartCheckForEndOfVideo:", "State reset.");
+    clearInterval(state.checkVideoInterval);
+
+    state.currentVideo = undefined;
+    state.currentVideoTime = 0;
+    state.isPlaying = false;
+    io.emit(SOCKET_EVENT_KEYS.currentVideo, state.currentVideo);
+    io.emit(SOCKET_EVENT_KEYS.currentVideoTime, state.currentVideoTime);
+    io.emit(SOCKET_EVENT_KEYS.isPlaying, state.isPlaying);
+  }
+
   try {
     state.checkVideoInterval = setInterval(async () => {
-      if (state.currentPage && state.currentVideo && state.isPlaying && state.playerFrame) {
-        const timeState = await checkForEndOfVideo(state.playerFrame, io);
-        if (typeof timeState !== "number") {
-          if (timeState.hasEnded) {
-            clearInterval(state.checkVideoInterval);
-
-            state.currentVideo = undefined;
-            state.currentVideoTime = 0;
-            state.isPlaying = false;
-            io.emit(SOCKET_EVENT_KEYS.currentVideo, state.currentVideo);
-            io.emit(SOCKET_EVENT_KEYS.currentVideoTime, state.currentVideoTime);
-            io.emit(SOCKET_EVENT_KEYS.isPlaying, state.isPlaying);
-
-          } else {
-            state.currentVideoTime = timeState.currentTime;
-            io.emit(SOCKET_EVENT_KEYS.currentVideoTime, state.currentVideoTime);
-          }
-        }
+      if (!state.currentPage || !state.currentVideo || !state.isPlaying || !state.playerFrame) {
+        return;
       }
+
+      const timeState = await checkForEndOfVideo(state.playerFrame);
+
+      // If an error occured with the iframe API the video will show an error code and the stop working.
+      if (!timeState) {
+        io.emit(SOCKET_EVENT_KEYS.error, "An error occured with the player.");
+        clearState();
+        return;
+      }
+
+      if (timeState.hasEnded) {
+        clearState();
+        return;
+      }
+
+      state.currentVideoTime = timeState.currentTime;
+      io.emit(SOCKET_EVENT_KEYS.currentVideoTime, state.currentVideoTime);
+
     }, 5000);
 
   } catch (err: any) {
