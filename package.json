@@ -1,7 +1,7 @@
 {
   "name": "rpiwebmusicplayerapi",
   "version": "1.0.0",
-  "description": "Backend API for the raspberry pi web music player app",
+  "description": "Backend API for the R Jukebox (formally raspberry pi web music player app)",
   "main": "build/index.js",
   "scripts": {
     "build": "yarn tsc",
@@ -14,7 +14,7 @@
     "url": "git+https://github.com/csterk-dev/RpiWebMusicPlayerAPI.git"
   },
   "keywords": [],
-  "author": "",
+  "author": "Chris Sterk @csterk-dev",
   "license": "ISC",
   "bugs": {
     "url": "https://github.com/csterk-dev/RpiWebMusicPlayerAPI/issues"
@@ -27,7 +27,8 @@
     "express": "^4.19.1",
     "express-async-handler": "^1.2.0",
     "puppeteer": "^22.10.0",
-    "socket.io": "^4.7.5"
+    "socket.io": "^4.7.5",
+    "sqlite3": "^5.1.7"
   },
   "devDependencies": {
     "@types/cors": "^2.8.17",
