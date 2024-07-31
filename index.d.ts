@@ -105,3 +105,9 @@ declare interface Video {
   title: string;
   videoId: string;
 }
+
+
+declare interface HistoryVideo extends Video {
+  playedAt: string;
+  playedDate: string;
+}
