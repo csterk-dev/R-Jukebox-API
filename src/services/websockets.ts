@@ -6,7 +6,7 @@ import { Server } from "http";
  * Initialises a new Socket.IO server and returns it.
  * @param server The current express server instance.
  * 
- * @returns {Socket.IO server} The Socket.IO server instance.
+ * @returns {Socket.IO} The Socket.IO server instance.
  */
 export function initialiseWebSocketServer(server: Server) {
   
