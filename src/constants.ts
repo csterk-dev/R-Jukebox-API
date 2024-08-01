@@ -5,7 +5,7 @@
  */
 export const PORT = 3001;
 export const PLAYER_URL = `http://localhost:${PORT}/player`;
-export const PLAYER_VOLUME_DEFAULT = 70.
+export const PLAYER_VOLUME_DEFAULT = 30.
 /** @deprecated Youtube browser no longer supported. Use `PLAYER_URL` instead for static page player. */
 export const YOUTUBE_BROWSER_WATCH_PAGE_URL = "https://www.youtube.com/watch?v=";
 
@@ -30,10 +30,14 @@ export const SOCKET_EVENT_KEYS = {
   currentVideoTime: "current-video-time",
   /** Any error values. */
   error: "error",
+  /** The history. */
+  history: "history",
   /** If the player is loading. */
   isLoading: "is-loading",
   /** Gets the value from the isPlaying boolean. */
   isPlaying: "is-playing",
+  /** Gets the current ooperating player volume level. */
+  playerVolume: "player-vol",
   /** Updates the current video and sets `isPlaying` boolean to true on the server. */
   setCurrentVideo: "set-current-video",
   /** THe videos time. */
@@ -41,9 +45,7 @@ export const SOCKET_EVENT_KEYS = {
   /** Updates the isPlaying boolean state. */
   setIsPlaying: "set-is-playing",
   /** Updates the volume of the player. */
-  setPlayerVolume: "set-player-vol",
-  /** Gets the current ooperating player volume level. */
-  playerVolume: "player-vol"
+  setPlayerVolume: "set-player-vol"
 };
 
 /*
@@ -62,3 +64,5 @@ export const TIMELINE_SELECTOR = ".ytp-progress-list";
 export const VOLUME_BUTTON_SELECTOR = '.ytp-mute-button';
 export const VOLUME_SLIDER_CONTAINER_SELECTOR = '.ytp-volume-slider';
 // class="ytp-ad-skip-button-modern"
+
+//<div class="ytp-error-content-wrap-reason"><span>An error occurred. Please try again later. (Playback ID: buUDvEaZ4oDNuqR8) <br><a class="ytp-error-link" href="//support.google.com/youtube/?p=player_error1&amp;hl=en-GB" target="_blank">Learn More</a></span></div>
