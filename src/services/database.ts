@@ -43,7 +43,7 @@ export async function getRecentlyPlayed(db: Database, io: WsServer, incomingClie
     return await getHistory(db);
   } catch (err: any) {
     console.log("GetRecentlyPlayed:", "Something went wrong getting the recently played videos.\n", err);
-    io.to(incomingClientId).emit(SOCKET_EVENT_KEYS.error, "Something went wrong getting the recently played videos.");
+    io.to(incomingClientId).emit(SOCKET_EVENT_KEYS.error, "Something went wrong getting the history.");
     return null;
   }
 }
@@ -55,7 +55,7 @@ export async function updateRecentlyPlayed(db: Database, io: WsServer, incomingC
     return 0;
   } catch (err: any) {
     console.log("UpdateRecentlyPlayed:", "Something went wrong updating the recently played videos.\n", err);
-    io.to(incomingClientId).emit(SOCKET_EVENT_KEYS.error, "Something went wrong updating the recently played videos.");
+    io.to(incomingClientId).emit(SOCKET_EVENT_KEYS.error, "Something went wrong updating the history.");
     return 1;
   }
 }
