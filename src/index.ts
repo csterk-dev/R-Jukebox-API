@@ -6,9 +6,12 @@ import BodyParser from "body-parser";
 import { Browser } from "puppeteer";
 import { youtubeRouter } from "./routes/youtubeRoutes";
 import { handleSocketConnection } from "./controllers/websocketHandlers";
+import { initialiseDBConnection } from "./services/database";
 import { initialiseWebSocketServer } from "./services/websockets";
 import { initialsePuppeteerBrowser } from "./services/puppeteer";
 import { PORT } from "./constants";
+import { Database } from "sqlite3";
+
 
 /*
  * Server setup
@@ -19,6 +22,7 @@ app.use(BodyParser.urlencoded({ extended: false }));
 app.use(BodyParser.json());
 app.use(express.static(path.join(__dirname, "../public")));
 const osPlatform = platform();
+let db: Database | undefined;
 let browser: Browser | undefined
 
 
@@ -29,6 +33,7 @@ const aliveMessage = `The server is running on port ${PORT}, on platform ${osPla
  * Initialise server endpoints, puppeteer instance and player page.
  */
 (async () => {
+  db = await initialiseDBConnection();
   browser = await initialsePuppeteerBrowser(osPlatform);
 })();
 app.get("/", (req, res) => res.status(200).send({ message: aliveMessage }));
@@ -41,5 +46,5 @@ app.use("/youtube", youtubeRouter);
  */
 const server = app.listen(PORT, () => console.log(aliveMessage));
 const io = initialiseWebSocketServer(server);
-io.on("connection", (socket) => handleSocketConnection(browser, io, socket));
+io.on("connection", (socket) => db && handleSocketConnection(browser, io, socket, db));
 server.on("error", console.log);

@@ -35,11 +35,6 @@ export async function initialsePuppeteerBrowser(osPlatform: NodeJS.Platform) {
 
 /**
  * Closes any previous player pages and opens a new player page with the supplied `videoId`.
- * 
- * @param browser The current puppeteer browser instance.
- * @param io The current server.
- * @param videoId The video to play.
- * @param playerVolume The previously saved player volume.
  * @returns The newly created page and player iframe or null if an error occurs.
  */
 export async function playVideo(browser: Browser, io: WsServer, videoId: string, playerVolume: number): Promise<{ currentPage: Page; iFrame: Frame; } | null> {
@@ -144,10 +139,6 @@ export async function playVideo(browser: Browser, io: WsServer, videoId: string,
 
 /**
  * Attempts to find the play/pause button within the iFrame and handles the action accordingly.
- * 
- * @param iFrame The iframe of the player.
- * @param io The current server.
- * @param videoId The video to play.
  * @returns An exit code: error == 1, OK == 0.
  */
 export async function togglePlayingState(io: WsServer, incomingClientId: string, iFrame: Frame, isPlayingState: boolean): Promise<0 | 1> {
@@ -195,8 +186,6 @@ export async function togglePlayingState(io: WsServer, incomingClientId: string,
 
 /**
  * Checks if the current video playing in the YouTube iframe has ended.
- * 
- * @param iFrame The iframe of the player.
  * @returns {Promise<{ hasEnded: boolean, currentTime: number, durationTime: number } | number>} 
  * Returns null if an error occurs or an object with `hasEnded` and `currentTime` properties.
  */
@@ -243,11 +232,6 @@ export async function checkForEndOfVideo(iFrame: Frame) {
 
 /**
  * Updates the player's volume to the be the new level.
- * 
- * @param currentPage The current player page.
- * @param io The current server.
- * @param videoId The current video.
- * @param level The new level (0-100) to set to the player .
  * @returns An exit code: error == 1, OK == 0.
  */
 export async function adjustPlayerVolume(io: WsServer, incomingClientId: string, currentPage: Page, iFrame: Frame, level: number): Promise<0 | 1> {
@@ -275,12 +259,6 @@ export async function adjustPlayerVolume(io: WsServer, incomingClientId: string,
 
 /**
  * Updates the player's current progress.
- * 
- * @param currentPage The current player page.
- * @param iFrame The iframe of the player.
- * @param io The current server.
- * @param durationSeconds The duration of the current video.
- * @param newTimeSeconds The new time to set.
  * @returns An exit code: error == 1, OK == 0.
  */
 export async function adjustPlayerProgress(io: WsServer, incomingClientId: string, currentPage: Page, iFrame: Frame, durationSeconds: number, newTimeSeconds: number): Promise<0 | 1> {
@@ -309,12 +287,9 @@ export async function adjustPlayerProgress(io: WsServer, incomingClientId: strin
 
 /**
  * Interacts with the player to set a new volume level.
- * @param currentPage The current player page.
- * @param iFrame The iframe of the player.
- * @param level The new level.
  * @returns An exit code: error == 1, OK == 0.
  */
-async function setPlayerVolume(currentPage: Page, iFrame: Frame, level: number): Promise<0 | 1> {
+async function setPlayerVolume(currentPage: Page, iFrame: Frame, newVolumeLevel: number): Promise<0 | 1> {
 
   // Find the volume slider container and hover the button to make it 'open'
   const volumeButton = await iFrame.waitForSelector(VOLUME_BUTTON_SELECTOR).catch(() => null);
@@ -328,7 +303,7 @@ async function setPlayerVolume(currentPage: Page, iFrame: Frame, level: number):
   }
 
   // Calculate the position to set the volume
-  const volumePosition = boundingBox.x + (PLAYER_VOLUME_SLIDER_BOUNDING_WIDTH * (level + PLAYER_SLIDER_LEVEL_OFFSET) / 100);
+  const volumePosition = boundingBox.x + (PLAYER_VOLUME_SLIDER_BOUNDING_WIDTH * (newVolumeLevel + PLAYER_SLIDER_LEVEL_OFFSET) / 100);
 
   // Simulate the mouse drag to set the volume
   await currentPage.mouse.move(volumePosition, boundingBox.y + boundingBox.height / 2, { steps: 10 });
@@ -340,10 +315,6 @@ async function setPlayerVolume(currentPage: Page, iFrame: Frame, level: number):
 
 /**
  * Interacts with the player to set a new current time.
- * @param currentPage The current player page.
- * @param iFrame The iframe of the player.
- * @param durationSeconds The duration time in seconds.
- * @param newTimeSeconds The new time in seconds.
  * @returns An exit code: error == 1, OK == 0.
  */
 async function setPlayerProgress(currentPage: Page, iFrame: Frame, durationSeconds: number, newTimeSeconds: number): Promise<0 | 1> {
