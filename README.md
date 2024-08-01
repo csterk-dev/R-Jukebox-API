@@ -9,6 +9,7 @@ Built using Socket.IO and Express.js, this repository contains the backend serve
 
 * Socket.IO
 * Puppeteer
+* SQLite3
 * Express.js
 * Express Async Handler
 * Axios
