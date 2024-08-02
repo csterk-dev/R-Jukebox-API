@@ -83,7 +83,7 @@ export function handleSocketConnection(browser: Browser | undefined, io: WsServe
       const history = await getRecentlyPlayed(db, io, incomingClientId);
       if (!history) return;
 
-      io.to(incomingClientId).emit(SOCKET_EVENT_KEYS.history, history);
+      io.emit(SOCKET_EVENT_KEYS.history, history);
     }
   });
 
