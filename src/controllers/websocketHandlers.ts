@@ -1,5 +1,5 @@
 import { adjustPlayerProgress, adjustPlayerVolume, checkForEndOfVideo, playVideo, togglePlayingState } from "../services/puppeteer";
-import { PLAYER_VOLUME_DEFAULT, SOCKET_EVENT_KEYS } from "../constants";
+import { PLAYER_CHECK_VIDEO_INTERVAL, PLAYER_VOLUME_DEFAULT, SOCKET_EVENT_KEYS } from "../constants";
 import { Socket, Server as WsServer } from "socket.io";
 import { Browser, Frame, Page } from "puppeteer";
 import { formatISO8601ToSeconds } from "../utils";
@@ -184,6 +184,7 @@ function startCheckForEndOfVideo(io: WsServer) {
     io.emit(SOCKET_EVENT_KEYS.isPlaying, state.isPlaying);
   }
 
+
   try {
     state.checkVideoInterval = setInterval(async () => {
       if (!state.currentPage || !state.currentVideo || !state.isPlaying || !state.playerFrame) {
@@ -207,7 +208,7 @@ function startCheckForEndOfVideo(io: WsServer) {
       state.currentVideoTime = timeState.currentTime;
       io.emit(SOCKET_EVENT_KEYS.currentVideoTime, state.currentVideoTime);
 
-    }, 5000);
+    }, PLAYER_CHECK_VIDEO_INTERVAL);
 
   } catch (err: any) {
     console.log("StartCheckForEndOfVideo:", "An error occured while checking the player's current time.\n", err);
