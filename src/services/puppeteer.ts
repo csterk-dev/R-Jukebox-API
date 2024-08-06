@@ -1,4 +1,4 @@
-import { IFRAME_SELECTOR, PAUSE_TOOLTIP_SELECTOR, PLAY_BUTTON_SELECTOR, PLAY_TOOLTIP_SELECTOR, PLAYER_PROGRESS_SLIDER_BOUNDING_WIDTH, PLAYER_SLIDER_LEVEL_OFFSET, PLAYER_URL, PLAYER_VOLUME_SLIDER_BOUNDING_WIDTH, SOCKET_EVENT_KEYS, TIME_CURRENT_SELECTOR, TIME_DURATION_SELECTOR, TIMELINE_SELECTOR, VOLUME_BUTTON_SELECTOR, VOLUME_SLIDER_CONTAINER_SELECTOR } from "../constants";
+import { IFRAME_SELECTOR, PAUSE_TOOLTIP_SELECTOR, PLAY_BUTTON_SELECTOR, PLAY_TOOLTIP_SELECTOR, PLAYBACK_ERROR_CONTENT_CONTAINER, PLAYER_CHECK_VIDEO_INTERVAL, PLAYER_PROGRESS_SLIDER_BOUNDING_WIDTH, PLAYER_SLIDER_LEVEL_OFFSET, PLAYER_URL, PLAYER_VOLUME_SLIDER_BOUNDING_WIDTH, SOCKET_EVENT_KEYS, TIME_CURRENT_SELECTOR, TIME_DURATION_SELECTOR, TIMELINE_SELECTOR, VOLUME_BUTTON_SELECTOR, VOLUME_SLIDER_CONTAINER_SELECTOR } from "../constants";
 import puppeteer, { Browser, Frame, Page } from "puppeteer";
 import { Server as WsServer } from "socket.io";
 import { formatPlayerTimeStringToSeconds } from "../utils";
@@ -191,8 +191,14 @@ export async function togglePlayingState(io: WsServer, incomingClientId: string,
  */
 export async function checkForEndOfVideo(iFrame: Frame) {
   try {
-    const currentTimeEl = await iFrame.waitForSelector(TIME_CURRENT_SELECTOR).catch(() => null);
-    const durationTimeEl = await iFrame.waitForSelector(TIME_DURATION_SELECTOR).catch(() => null);
+    const playbackErrorEl = await iFrame.waitForSelector(PLAYBACK_ERROR_CONTENT_CONTAINER, { timeout: PLAYER_CHECK_VIDEO_INTERVAL }).catch(() => null);
+    const currentTimeEl = await iFrame.waitForSelector(TIME_CURRENT_SELECTOR, { timeout: PLAYER_CHECK_VIDEO_INTERVAL }).catch(() => null);
+    const durationTimeEl = await iFrame.waitForSelector(TIME_DURATION_SELECTOR, { timeout: PLAYER_CHECK_VIDEO_INTERVAL }).catch(() => null);
+
+    if (playbackErrorEl) {
+      console.log("CheckForEndOfVideo:", "Playback error detected.");
+      return null;
+    }
 
     if (!currentTimeEl || !durationTimeEl) {
       console.log("CheckForEndOfVideo:", "Cannot get time elements.");
