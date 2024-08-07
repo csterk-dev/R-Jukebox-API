@@ -6,6 +6,7 @@
 export const PORT = 3001;
 export const PLAYER_URL = `http://localhost:${PORT}/player`;
 export const PLAYER_VOLUME_DEFAULT = 30.
+export const PLAYER_CHECK_VIDEO_INTERVAL = 5000;
 /** @deprecated Youtube browser no longer supported. Use `PLAYER_URL` instead for static page player. */
 export const YOUTUBE_BROWSER_WATCH_PAGE_URL = "https://www.youtube.com/watch?v=";
 
@@ -51,6 +52,7 @@ export const SOCKET_EVENT_KEYS = {
 /*
  * Puppeteer vars 
  */
+export const PLAYBACK_ERROR_CONTENT_CONTAINER = "ytp-error-content-wrap-reason";
 export const IFRAME_SELECTOR = `iframe[id="player"]`;
 export const PAUSE_TOOLTIP_SELECTOR = `data-title-no-tooltip="Pause"`;
 export const PLAY_BUTTON_SELECTOR = ".ytp-play-button";
