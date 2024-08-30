@@ -3,14 +3,29 @@ import express from "express";
 import { platform } from "os";
 import path from "path";
 import BodyParser from "body-parser";
-import { Browser } from "puppeteer";
+import { Browser, Frame, Page } from "puppeteer";
 import { youtubeRouter } from "./routes/youtubeRoutes";
 import { handleSocketConnection } from "./controllers/websocketHandlers";
-import { initialiseDBConnection } from "./services/database";
+import { getHistoryItems, getQueueItems, initialiseDBConnection } from "./services/database";
 import { initialiseWebSocketServer } from "./services/websockets";
 import { initialsePuppeteerBrowser } from "./services/puppeteer";
-import { PORT } from "./constants";
+import { PLAYER_VOLUME_DEFAULT, PORT } from "./constants";
 import { Database } from "sqlite3";
+
+
+export type StateType = {
+  browser: Browser | undefined;
+  checkVideoInterval: NodeJS.Timeout | undefined;
+  currentPage: Page | null;
+  currentVideo: Video | undefined;
+  currentVideoTime: number | undefined;
+  history: Video[];
+  isLoading: boolean;
+  isPlaying: boolean;
+  playerFrame: Frame | null;
+  playerVolume: number;
+  queue: Video[];
+}
 
 
 /*
@@ -23,18 +38,38 @@ app.use(BodyParser.json());
 app.use(express.static(path.join(__dirname, "../public")));
 const osPlatform = platform();
 let db: Database | undefined;
-let browser: Browser | undefined
+
+
+const state: StateType = {
+  browser: undefined,
+  checkVideoInterval: undefined,
+  currentPage: null,
+  currentVideo: undefined,
+  currentVideoTime: undefined,
+  history: [],
+  isLoading: false,
+  isPlaying: false,
+  playerFrame: null,
+  playerVolume: PLAYER_VOLUME_DEFAULT,
+  queue: []
+}
 
 
 const aliveMessage = `The server is running on port ${PORT}, on platform ${osPlatform}.`;
 
 
 /*
- * Initialise server endpoints, puppeteer instance and player page.
+ * Initialise server endpoints, puppeteer instance and player state.
  */
 (async () => {
   db = await initialiseDBConnection();
-  browser = await initialsePuppeteerBrowser(osPlatform);
+  state.browser = await initialsePuppeteerBrowser(osPlatform);
+
+  const historyRes = await getHistoryItems(db);
+  historyRes ? state.history = historyRes : undefined;
+
+  const queueRes = await getQueueItems(db);
+  queueRes ? state.queue = queueRes : undefined;
 })();
 app.get("/", (req, res) => res.status(200).send({ message: aliveMessage }));
 app.get("/player/:videoId", (req, res) => res.sendFile(path.join(__dirname, "../public", "player.html")));
@@ -46,5 +81,5 @@ app.use("/youtube", youtubeRouter);
  */
 const server = app.listen(PORT, () => console.log(aliveMessage));
 const io = initialiseWebSocketServer(server);
-io.on("connection", (socket) => db && handleSocketConnection(browser, io, socket, db));
+io.on("connection", (socket) => db && handleSocketConnection(io, socket, db, state));
 server.on("error", console.log);
