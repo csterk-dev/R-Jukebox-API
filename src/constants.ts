@@ -23,22 +23,34 @@ export const YOUTUBE_API_URL = "https://www.googleapis.com/youtube/v3";
  * @remarks Ensure that the client and server **have matching event keys.**
  */
 export const SOCKET_EVENT_KEYS = {
-  /** Used to return the current state to the newly connect client. */
-  getInitialState: "get-initial-state",
+  /** Adds to the top of the queue. */
+  addToTopOfQueue: "add-to-top-of-queue",
+  /** Adds to the bottom of the queue. */
+  addToBottomOfQueue: "add-to-bottom-of-queue",
+  /** Clears the queue. */
+  clearQueue: "clear-queue",
   /** Gets the current video. */
   currentVideo: "current-video",
   /** The videos time. */
   currentVideoTime: "current-video-time",
+  /** Deletes the provided item from the queue. */
+  deleteQueueItem: "delete-queue-item",
   /** Any error values. */
   error: "error",
-  /** The history. */
+  /** Used to return the current state to the newly connect client. */
+  getInitialState: "get-initial-state",
+  /** Gets the history. */
   history: "history",
   /** If the player is loading. */
   isLoading: "is-loading",
   /** Gets the value from the isPlaying boolean. */
   isPlaying: "is-playing",
+  /** Gets the next video in the queue. */
+  playNextQueueItem: "play-next-queue-item",
   /** Gets the current ooperating player volume level. */
   playerVolume: "player-vol",
+  /** Gets the queue. */
+  queue: "queue",
   /** Updates the current video and sets `isPlaying` boolean to true on the server. */
   setCurrentVideo: "set-current-video",
   /** THe videos time. */
