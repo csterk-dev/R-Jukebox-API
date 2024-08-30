@@ -1,7 +1,8 @@
 import { IFRAME_SELECTOR, PAUSE_TOOLTIP_SELECTOR, PLAY_BUTTON_SELECTOR, PLAY_TOOLTIP_SELECTOR, PLAYBACK_ERROR_CONTENT_CONTAINER, PLAYER_CHECK_VIDEO_INTERVAL, PLAYER_PROGRESS_SLIDER_BOUNDING_WIDTH, PLAYER_SLIDER_LEVEL_OFFSET, PLAYER_URL, PLAYER_VOLUME_SLIDER_BOUNDING_WIDTH, SOCKET_EVENT_KEYS, TIME_CURRENT_SELECTOR, TIME_DURATION_SELECTOR, TIMELINE_SELECTOR, VOLUME_BUTTON_SELECTOR, VOLUME_SLIDER_CONTAINER_SELECTOR } from "../constants";
-import puppeteer, { Browser, Frame, Page } from "puppeteer";
+import puppeteer, { Frame, Page } from "puppeteer";
 import { Server as WsServer } from "socket.io";
 import { formatPlayerTimeStringToSeconds } from "../utils";
+import { StateType } from "index";
 
 /**
  * Launches a puppeteer browser instance and intialises any puppeteer routes.
@@ -37,14 +38,20 @@ export async function initialsePuppeteerBrowser(osPlatform: NodeJS.Platform) {
  * Closes any previous player pages and opens a new player page with the supplied `videoId`.
  * @returns The newly created page and player iframe or null if an error occurs.
  */
-export async function playVideo(browser: Browser, io: WsServer, videoId: string, playerVolume: number): Promise<{ currentPage: Page; iFrame: Frame; } | null> {
-  io.emit(SOCKET_EVENT_KEYS.isLoading, true);
+export async function playVideo(io: WsServer, videoId: string, state: StateType): Promise<{ currentPage: Page; iFrame: Frame; } | null> {
+  if (!state.browser) {
+    io.emit(SOCKET_EVENT_KEYS.error, "No browser found. Refresh and try again.");
+    return null;
+  }
+
+  state.isLoading = true;
+  io.emit(SOCKET_EVENT_KEYS.isLoading, state.isLoading);
 
   try {
     /*
      * Close any previous player pages
      */
-    const pages = await browser.pages();
+    const pages = await state.browser.pages();
     if (pages.length > 0) {
       await Promise.all(
         pages.map(async page => {
@@ -59,7 +66,7 @@ export async function playVideo(browser: Browser, io: WsServer, videoId: string,
 
     // Open a new tab and navigate to the player
     const url = `${PLAYER_URL}/${videoId}`;
-    const currentPage = await browser.newPage();
+    const currentPage = await state.browser.newPage();
     await currentPage.goto(url);
 
 
@@ -98,9 +105,9 @@ export async function playVideo(browser: Browser, io: WsServer, videoId: string,
       // Ensure the player has the correct volume
       await playButton.hover();
 
-      const volExitCode = await setPlayerVolume(currentPage, iFrame, playerVolume);
+      const volExitCode = await setPlayerVolume(currentPage, iFrame, state.playerVolume);
       if (volExitCode === 1) {
-        io.emit(SOCKET_EVENT_KEYS.error, `Unable to set initial player volume to: ${playerVolume}%.`);
+        io.emit(SOCKET_EVENT_KEYS.error, `Unable to set initial player volume to: ${state.playerVolume}%.`);
       }
 
       if (htmlJsonButton.includes(PLAY_TOOLTIP_SELECTOR)) {
@@ -131,7 +138,8 @@ export async function playVideo(browser: Browser, io: WsServer, videoId: string,
     return null;
 
   } finally {
-    io.emit(SOCKET_EVENT_KEYS.isLoading, false);
+    state.isLoading = false;
+    io.emit(SOCKET_EVENT_KEYS.isLoading, state.isLoading);
   }
 }
 
@@ -222,6 +230,10 @@ export async function checkForEndOfVideo(iFrame: Frame) {
     const hasEnded = currentTimeSec >= durationTimeSec - toleranceSec;
     if (hasEnded) {
       console.log("CheckForEndOfVideo", "Video has ended.");
+      return {
+        hasEnded: true,
+        currentTime: 0
+      };
     }
 
     return {
