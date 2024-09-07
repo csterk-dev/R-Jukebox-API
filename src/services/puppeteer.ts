@@ -110,6 +110,9 @@ export async function playVideo(io: WsServer, videoId: string, state: StateType)
         io.emit(SOCKET_EVENT_KEYS.error, `Unable to set initial player volume to: ${state.playerVolume}%.`);
       }
 
+      state.currentVideoTime = 0;
+      io.emit(SOCKET_EVENT_KEYS.currentVideoTime, state.currentVideoTime);
+    
       if (htmlJsonButton.includes(PLAY_TOOLTIP_SELECTOR)) {
         playButton.click();
         console.log("PlayVideo:", "Video started.");
@@ -121,8 +124,8 @@ export async function playVideo(io: WsServer, videoId: string, state: StateType)
 
       console.log("PlayVideo:", "Video already playing.");
       return {
-        iFrame,
-        currentPage
+        currentPage,
+        iFrame
       }
 
     } catch (err: any) {
@@ -199,7 +202,11 @@ export async function togglePlayingState(io: WsServer, incomingClientId: string,
  */
 export async function checkForEndOfVideo(iFrame: Frame) {
   try {
-    const playbackErrorEl = await iFrame.waitForSelector(PLAYBACK_ERROR_CONTENT_CONTAINER, { timeout: PLAYER_CHECK_VIDEO_INTERVAL }).catch(() => null);
+    const playbackErrorEl = await iFrame.waitForSelector(PLAYBACK_ERROR_CONTENT_CONTAINER, { 
+      visible: true, 
+      timeout: PLAYER_CHECK_VIDEO_INTERVAL
+    }).catch(() => null);
+    
     const currentTimeEl = await iFrame.waitForSelector(TIME_CURRENT_SELECTOR, { timeout: PLAYER_CHECK_VIDEO_INTERVAL }).catch(() => null);
     const durationTimeEl = await iFrame.waitForSelector(TIME_DURATION_SELECTOR, { timeout: PLAYER_CHECK_VIDEO_INTERVAL }).catch(() => null);
 

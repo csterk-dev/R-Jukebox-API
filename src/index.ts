@@ -22,6 +22,7 @@ export type StateType = {
   history: Video[];
   isLoading: boolean;
   isPlaying: boolean;
+  isIntervalRunning: boolean;
   playerFrame: Frame | null;
   playerVolume: number;
   queue: Video[];
@@ -49,6 +50,7 @@ const state: StateType = {
   history: [],
   isLoading: false,
   isPlaying: false,
+  isIntervalRunning: false,
   playerFrame: null,
   playerVolume: PLAYER_VOLUME_DEFAULT,
   queue: []

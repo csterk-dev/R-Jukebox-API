@@ -20,7 +20,7 @@ export function handleSocketConnection(io: WsServer, socket: Socket, db: Databas
    */
   socket.on(SOCKET_EVENT_KEYS.getInitialState, (incomingClientId: string) => {
     setTimeout(() => {
-      getInitialState(io, incomingClientId, db, state);
+      getInitialState(io, incomingClientId, state);
     }, 200);
   });
 
@@ -178,7 +178,7 @@ export function handleSocketConnection(io: WsServer, socket: Socket, db: Databas
 /**
  * Returns the initial (current) state of the player to the connect client.
  */
-function getInitialState(io: WsServer, incomingClientId: string, db: Database, state: StateType) {
+function getInitialState(io: WsServer, incomingClientId: string, state: StateType) {
   io.to(incomingClientId).emit(SOCKET_EVENT_KEYS.currentVideo, state.currentVideo);
   io.to(incomingClientId).emit(SOCKET_EVENT_KEYS.currentVideoTime, state.currentVideoTime);
   io.to(incomingClientId).emit(SOCKET_EVENT_KEYS.isPlaying, state.isPlaying);
@@ -208,72 +208,83 @@ function clearState(io: WsServer, state: StateType) {
  * Function that checks the current time and duration while the current video is playing to determine if the video has ended.
  */
 function startCheckForEndOfVideo(io: WsServer, db: Database, state: StateType) {
-  console.log("startCheckForEndOfVideo", "runnnnn");
   try {
     state.checkVideoInterval = setInterval(async () => {
-      if (!state.currentPage || !state.currentVideo || !state.isPlaying || !state.playerFrame) {
+      if (!state.currentPage || !state.currentVideo || !state.isPlaying || !state.playerFrame || state.isIntervalRunning || state.isLoading) {
         return;
       }
-
+      console.log("before check for end starts")
+      state.isIntervalRunning = true;
       const timeState = await checkForEndOfVideo(state.playerFrame);
+      console.log("after check for end starts")
 
       // If an error occured with the iframe API the video will show an error code and the stop working.
       if (!timeState) {
         io.emit(SOCKET_EVENT_KEYS.error, "An error occured with the player.");
         clearState(io, state);
+
         // Attempt to load the next video.
         const getNextQueueItemReturn = await getNextQueueItem(db, io);
-        if (!getNextQueueItemReturn) return;
+        if (!getNextQueueItemReturn) {
+          state.isIntervalRunning = false;
+          return;
+        }
 
         const [nextVideo, updatedQueue] = getNextQueueItemReturn;
-        
+
         // No next item means the Queue is empty
-        if (!nextVideo || state.isLoading) return;
+        if (!nextVideo) {
+          state.isIntervalRunning = false;
+          return;
+        }
 
         state.queue = updatedQueue;
 
         io.emit(SOCKET_EVENT_KEYS.queue, state.queue);
 
-        console.log("Loading next video");
         await handlePlayNextVideo(io, db, state, nextVideo);
 
       } else if (timeState.hasEnded) {
         clearState(io, state);
         // Attempt to load the next video.
         const getNextQueueItemReturn = await getNextQueueItem(db, io);
-        if (!getNextQueueItemReturn) return;
+        if (!getNextQueueItemReturn) {
+          state.isIntervalRunning = false;
+          return;
+        }
 
         const [nextVideo, updatedQueue] = getNextQueueItemReturn;
-        
+
         // No next item means the Queue is empty
-        if (!nextVideo || state.isLoading) return;
+        if (!nextVideo) {
+          state.isIntervalRunning = false;
+          return;
+        }
 
         state.queue = updatedQueue;
 
         io.emit(SOCKET_EVENT_KEYS.queue, state.queue);
 
-        console.log("Loading next video");
         await handlePlayNextVideo(io, db, state, nextVideo);
 
       } else {
         state.currentVideoTime = timeState.currentTime;
         io.emit(SOCKET_EVENT_KEYS.currentVideoTime, state.currentVideoTime);
-
       }
+
+      state.isIntervalRunning = false;
+
     }, PLAYER_CHECK_VIDEO_INTERVAL);
 
   } catch (err: any) {
     console.log("StartCheckForEndOfVideo:", "An error occured while checking the player's current time.\n", err);
     io.emit(SOCKET_EVENT_KEYS.error, "An error occured while checking the player's current time.");
+    state.isIntervalRunning = false;
   }
 }
 
 
 async function handlePlayNextVideo(io: WsServer, db: Database, state: StateType, incomingVideo: Video, incomingClientId?: string,) {
-  console.log("MEEEEEEEEEEEEEE");
-  state.currentVideoTime = 0;
-  io.emit(SOCKET_EVENT_KEYS.currentVideoTime, state.currentVideoTime);
-
   if (state.checkVideoInterval) clearInterval(state.checkVideoInterval);
 
   const playerElements = await playVideo(io, incomingVideo.videoId, state);
