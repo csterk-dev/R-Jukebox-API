@@ -112,7 +112,7 @@ export async function playVideo(io: WsServer, videoId: string, state: StateType)
 
       state.currentVideoTime = 0;
       io.emit(SOCKET_EVENT_KEYS.currentVideoTime, state.currentVideoTime);
-    
+
       if (htmlJsonButton.includes(PLAY_TOOLTIP_SELECTOR)) {
         playButton.click();
         console.log("PlayVideo:", "Video started.");
@@ -193,31 +193,40 @@ export async function togglePlayingState(io: WsServer, incomingClientId: string,
   }
 }
 
-
+type CheckForEndOfVideoReturn = {
+  data: { hasEnded: boolean, currentTime: number } | null;
+  checkStatus: "success" | "error" | "error-ignored";
+}
 
 /**
  * Checks if the current video playing in the YouTube iframe has ended.
- * @returns {Promise<{ hasEnded: boolean, currentTime: number, durationTime: number } | number>} 
+ * @returns {Promise<{ hasEnded: boolean, currentTime: number } | number>} 
  * Returns null if an error occurs or an object with `hasEnded` and `currentTime` properties.
  */
-export async function checkForEndOfVideo(iFrame: Frame) {
+export async function checkForEndOfVideo(iFrame: Frame): Promise<CheckForEndOfVideoReturn> {
   try {
-    const playbackErrorEl = await iFrame.waitForSelector(PLAYBACK_ERROR_CONTENT_CONTAINER, { 
-      visible: true, 
+    const playbackErrorEl = await iFrame.waitForSelector(PLAYBACK_ERROR_CONTENT_CONTAINER, {
+      visible: true,
       timeout: PLAYER_CHECK_VIDEO_INTERVAL
     }).catch(() => null);
-    
+
     const currentTimeEl = await iFrame.waitForSelector(TIME_CURRENT_SELECTOR, { timeout: PLAYER_CHECK_VIDEO_INTERVAL }).catch(() => null);
     const durationTimeEl = await iFrame.waitForSelector(TIME_DURATION_SELECTOR, { timeout: PLAYER_CHECK_VIDEO_INTERVAL }).catch(() => null);
 
     if (playbackErrorEl) {
       console.log("CheckForEndOfVideo:", "Playback error detected.");
-      return null;
+      return {
+        checkStatus: "error",
+        data: null
+      };
     }
 
     if (!currentTimeEl || !durationTimeEl) {
       console.log("CheckForEndOfVideo:", "Cannot get time elements.");
-      return null;
+      return {
+        checkStatus: "error",
+        data: null
+      };
     }
 
     const currentTime = await iFrame.evaluate(el => el.textContent, currentTimeEl);
@@ -225,7 +234,10 @@ export async function checkForEndOfVideo(iFrame: Frame) {
 
     if (!currentTime || !durationTime) {
       console.log("CheckForEndOfVideo:", "Cannot read video times.");
-      return null;
+      return {
+        checkStatus: "error",
+        data: null
+      };
     }
 
     const currentTimeSec = formatPlayerTimeStringToSeconds(currentTime);
@@ -238,19 +250,42 @@ export async function checkForEndOfVideo(iFrame: Frame) {
     if (hasEnded) {
       console.log("CheckForEndOfVideo", "Video has ended.");
       return {
-        hasEnded: true,
-        currentTime: 0
+        checkStatus: "success",
+        data: {
+          hasEnded: true,
+          currentTime: 0
+        }
+      };
+    }
+    return {
+      checkStatus: "success",
+      data: {
+        hasEnded: false,
+        currentTime: currentTimeSec
+      }
+    };
+
+  } catch (error: any) {
+    const errMessage: string = error.message;
+    const detatchedFrameMessage = "Attempted to use detached Frame";
+
+    /*
+     * Allow detached frame errors to be ignored.
+     * Detached frame errors occur when the playerFrame changes as the function attempts to interact with the old frame as it is changing.
+     */
+    if (errMessage.includes(detatchedFrameMessage)) {
+      console.error("CheckForEndOfVideo error:\n", "Detached frame deteched - ignoring");
+      return {
+        checkStatus: "error-ignored",
+        data: null
       };
     }
 
-    return {
-      hasEnded,
-      currentTime: currentTimeSec
-    };
-
-  } catch (error) {
     console.error("CheckForEndOfVideo error:\n", error);
-    return null;
+    return {
+      checkStatus: "error",
+      data: null
+    };
   }
 }
 
