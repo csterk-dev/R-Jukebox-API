@@ -58,7 +58,7 @@ export async function updateHistoryItems(db: Database, io: WsServer, newVideo: V
   try {
     return await updateHistory(db, newVideo);
   } catch (err: any) {
-    console.log("UpdateRecentlyPlayed:", "Something went wrong updating the recently played videos.\n", err);
+    console.error("UpdateRecentlyPlayed:", "Something went wrong updating the recently played videos.\n", err);
     if (incomingClientId) {
       io.to(incomingClientId).emit(SOCKET_EVENT_KEYS.error, "Something went wrong updating the history.");
     }
@@ -75,7 +75,7 @@ export async function getQueueItems(db: Database, io?: WsServer, incomingClientI
   try {
     return await getQueue(db);
   } catch (err: any) {
-    console.log("GetRecentlyPlayed:", "Something went wrong getting the recently played videos.\n", err);
+    console.error("GetRecentlyPlayed:", "Something went wrong getting the recently played videos.\n", err);
     if (io && incomingClientId) {
       io.to(incomingClientId).emit(SOCKET_EVENT_KEYS.error, "Something went wrong getting the history.");
     }
@@ -92,7 +92,7 @@ export async function getNextQueueItem(db: Database, io: WsServer, incomingClien
   try {
     return await getAndRemoveNextVideo(db);
   } catch (err: any) {
-    console.log("GetNextQueueItem:", "Something went wrong getting the next video.\n", err);
+    console.error("GetNextQueueItem:", "Something went wrong getting the next video.\n", err);
     if (incomingClientId) {
       io.to(incomingClientId).emit(SOCKET_EVENT_KEYS.error, "Something went wrong getting the next video.");
     } else {
@@ -111,7 +111,7 @@ export async function deleteQueueItem(db: Database, io: WsServer, incomingClient
   try {
     return await deleteQueueVideo(db, videoId);
   } catch (err: any) {
-    console.log("DeleteQueueItem:", "Something went wrong removing the video from the queue.\n", err);
+    console.error("DeleteQueueItem:", "Something went wrong removing the video from the queue.\n", err);
     io.to(incomingClientId).emit(SOCKET_EVENT_KEYS.error, "Something went wrong removing the video from the queue.");
     return null;
   }
@@ -127,7 +127,7 @@ export async function clearQueue(db: Database, io: WsServer, incomingClientId: s
     await truncateQueue(db);
     return 0;
   } catch (err: any) {
-    console.log("ClearQueue:", "Something went wrong clearing the queue.\n", err);
+    console.error("ClearQueue:", "Something went wrong clearing the queue.\n", err);
     io.to(incomingClientId).emit(SOCKET_EVENT_KEYS.error, "Something went wrong clearing the queue.");
     return 1;
   }
@@ -142,7 +142,7 @@ export async function addToBottomOfQueue(db: Database, io: WsServer, incomingCli
   try {
     return await updateToBottom(db, newVideo);
   } catch (err: any) {
-    console.log("addToBottomOfQueue:", "Something went wrong adding the video to the bottom of the queue.\n", err);
+    console.error("addToBottomOfQueue:", "Something went wrong adding the video to the bottom of the queue.\n", err);
     io.to(incomingClientId).emit(SOCKET_EVENT_KEYS.error, "Something went wrong adding the video to the bottom of the queue.");
     return null;
   }
@@ -157,7 +157,7 @@ export async function addToTopOfQueue(db: Database, io: WsServer, incomingClient
   try {
     return await updateToTop(db, newVideo);
   } catch (err: any) {
-    console.log("addToTopOfQueue:", "Something went wrong adding the video to the top of the queue.\n", err);
+    console.error("addToTopOfQueue:", "Something went wrong adding the video to the top of the queue.\n", err);
     io.to(incomingClientId).emit(SOCKET_EVENT_KEYS.error, "Something went wrong adding the video to the top of the queue.");
     return null;
   }
@@ -569,7 +569,7 @@ function createTables(db: Database) {
     `,
     (err) => {
       if (err) {
-        console.log("CreateTables:", err.message);
+        console.error("CreateTables:", err.message);
       } else {
         console.log("CreateTables:", "Tables \"history\" and \"queue\" are ready.");
       }

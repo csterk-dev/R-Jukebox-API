@@ -812,6 +812,11 @@ cliui@^8.0.1:
     strip-ansi "^6.0.1"
     wrap-ansi "^7.0.0"
 
+co@4.6.0:
+  version "4.6.0"
+  resolved "https://registry.yarnpkg.com/co/-/co-4.6.0.tgz#6ea6bdf3d853ae54ccb8e47bfa0bf3f9031fb184"
+  integrity sha512-QVb0dM5HvG+uaxitm8wONl7jltx8dqhfU33DcqtOZcLSVIKSDDLDi7+0LbAKiyI8hD9u42m2YxXSkMGWThaecQ==
+
 color-convert@^1.9.0:
   version "1.9.3"
   resolved "https://registry.yarnpkg.com/color-convert/-/color-convert-1.9.3.tgz#bb71850690e1f136567de629d2d5471deda4c1e8"
@@ -1269,6 +1274,11 @@ etag@~1.8.1:
   version "1.8.1"
   resolved "https://registry.yarnpkg.com/etag/-/etag-1.8.1.tgz#41ae2eeb65efa62268aebfea83ac7d79299b0887"
   integrity sha512-aIL5Fx7mawVa300al2BnEE4iNvo1qETxLrPI/o05L7z6go7fCw1J6EQmbK4FmJ2AS7kgVF/KEZWufBfdClMcPg==
+
+eventemitter2@4.1.0:
+  version "4.1.0"
+  resolved "https://registry.yarnpkg.com/eventemitter2/-/eventemitter2-4.1.0.tgz#b1fb8a1144e7dfcf80cecce9877ff6d68e7d8506"
+  integrity sha512-38sx/0ho6QOQY5ifw0hC2qPEXmy63iiEH5fEyo6GO0FYfqgIvQvdDOHY4f+9iDeI8B0sZzPuu1IZDG/QXhQFvw==
 
 expand-template@^2.0.3:
   version "2.0.3"
@@ -1783,6 +1793,11 @@ is-fullwidth-code-point@^3.0.0:
   version "3.0.0"
   resolved "https://registry.yarnpkg.com/is-fullwidth-code-point/-/is-fullwidth-code-point-3.0.0.tgz#f116f8064fe90b3f7844a38997c0b75051269f1d"
   integrity sha512-zymm5+u+sCsSWyD9qNaejV3DFvhCKclKdizYaJUuHA83RLjb7nSuGnddCHGv0hk+KY7BMAlsWeK4Ueg6EV6XQg==
+
+is-generator-function@1.0.6:
+  version "1.0.6"
+  resolved "https://registry.yarnpkg.com/is-generator-function/-/is-generator-function-1.0.6.tgz#9e71653cd15fff341c79c4151460a131d31e9fc4"
+  integrity sha512-42rSiea6kme5O+AvAwoM8RaiO/aYzzGdVr8eLflrSXuI9VvfyXjdAdhN0YQ1uBVkNGyo96/0kcZQ0x6xhu01gg==
 
 is-glob@^4.0.0, is-glob@^4.0.1, is-glob@^4.0.3:
   version "4.0.3"
@@ -2987,6 +3002,15 @@ wide-align@^1.1.5:
   integrity sha512-eDMORYaPNZ4sQIuuYPDHdQvf4gyCF9rEEV/yPxGfwPkRodwEgiMUUXTx/dex+Me0wxx53S+NgUHaP7y3MGlDmg==
   dependencies:
     string-width "^1.0.2 || 2 || 3 || 4"
+
+worker-thread@^1.1.0:
+  version "1.1.0"
+  resolved "https://registry.yarnpkg.com/worker-thread/-/worker-thread-1.1.0.tgz#79194f52df4ee17cabf08246dd1b0a968c5214ed"
+  integrity sha512-u7HZZonw0bQRkwMhRcFf76N6/laQDu0MztLkuLSJXQLbVCVw0E3akkxkDiZyg08zdJm90pYm0PpmlgLckylJCg==
+  dependencies:
+    co "4.6.0"
+    eventemitter2 "4.1.0"
+    is-generator-function "1.0.6"
 
 wrap-ansi@^7.0.0:
   version "7.0.0"

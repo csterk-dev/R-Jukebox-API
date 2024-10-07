@@ -58,3 +58,13 @@ export const formatPlayerTimeStringToSeconds = (timeStr: string) => {
     parts[0] * 3600 + parts[1] * 60 + parts[2] :
     parts[0] * 60 + parts[1];
 };
+
+
+/**
+ * @param fn Function wrapping code.
+ * @param params An array of parameters to pass to function.
+ * @returns The provided function with the applied param variables.
+ */
+export const functionWrapper = (fn: Function, params?: any[]): Function => {
+  return () => fn.apply(this, params);
+}
