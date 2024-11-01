@@ -111,3 +111,15 @@ declare interface HistoryVideo extends Video {
   playedAt: string;
   playedDate: string;
 }
+
+/** Ensure cleint and server match. */
+type QueueRequest = {
+  clientId: string;
+  video: Video
+ }
+
+/** Ensure cleint and server match. */
+ type QueueAcknowledgement = {
+  success: boolean;
+  errorMessage?: string;
+ }

@@ -98,27 +98,41 @@ export function handleSocketConnection(io: WsServer, socket: Socket, db: Databas
   /**
    * Endpoint to add a video to the end of the queue.
    */
-  socket.on(SOCKET_EVENT_KEYS.addToBottomOfQueue, async (incomingClientId: string, incomingVideo: Video) => {
-    const updatedQueue = await addToBottomOfQueue(db, io, incomingClientId, incomingVideo);
-    if (!updatedQueue) return;
-    console.log("Socket:", "Added video to bottom of queue", incomingVideo.title);
+  socket.on(SOCKET_EVENT_KEYS.addToBottomOfQueue, async (req: QueueRequest, ackCallback: (ack: QueueAcknowledgement) => void) => {
+    const updatedQueue = await addToBottomOfQueue(db, req.video);
+    if (!updatedQueue) {
+      ackCallback({
+        success: false,
+        errorMessage: "Something went wrong adding the video to the bottom of the queue."
+      });
+      return
+    }
+    
+    console.log("Socket:", "Added video to bottom of queue", req.video.title);
+    ackCallback({ success: true });
 
     state.queue = updatedQueue;
-
     io.emit(SOCKET_EVENT_KEYS.queue, state.queue);
   });
-
+  
 
   /**
    * Endpoint to add a video to the start of the queue.
    */
-  socket.on(SOCKET_EVENT_KEYS.addToTopOfQueue, async (incomingClientId: string, incomingVideo: Video) => {
-    const updatedQueue = await addToTopOfQueue(db, io, incomingClientId, incomingVideo);
-    if (!updatedQueue) return;
-    console.log("Socket:", "Added video to top of queue", incomingVideo.title);
+  socket.on(SOCKET_EVENT_KEYS.addToTopOfQueue, async (req: QueueRequest, ackCallback: (ack: QueueAcknowledgement) => void) => {
+    const updatedQueue = await addToTopOfQueue(db, req.video);
+    if (!updatedQueue) {
+      ackCallback({
+        success: false,
+        errorMessage: "Something went wrong adding the video to the top of the queue."
+      });
+      return
+    }
+
+    console.log("Socket:", "Added video to bottom of queue", req.video.title);
+    ackCallback({ success: true });
 
     state.queue = updatedQueue;
-
     io.emit(SOCKET_EVENT_KEYS.queue, state.queue);
   });
 
