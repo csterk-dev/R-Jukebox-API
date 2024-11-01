@@ -138,12 +138,11 @@ export async function clearQueue(db: Database, io: WsServer, incomingClientId: s
  * Added the provided video from the bottom of the queue.
  * @returns An array of videos or null if an error occured.
 */
-export async function addToBottomOfQueue(db: Database, io: WsServer, incomingClientId: string, newVideo: Video) {
+export async function addToBottomOfQueue(db: Database, newVideo: Video) {
   try {
     return await updateToBottom(db, newVideo);
   } catch (err: any) {
     console.log("addToBottomOfQueue:", "Something went wrong adding the video to the bottom of the queue.\n", err);
-    io.to(incomingClientId).emit(SOCKET_EVENT_KEYS.error, "Something went wrong adding the video to the bottom of the queue.");
     return null;
   }
 }
@@ -153,12 +152,11 @@ export async function addToBottomOfQueue(db: Database, io: WsServer, incomingCli
  * Added the provided video from the top of the queue.
  * @returns An array of videos or null if an error occured.
  */
-export async function addToTopOfQueue(db: Database, io: WsServer, incomingClientId: string, newVideo: Video) {
+export async function addToTopOfQueue(db: Database, newVideo: Video) {
   try {
     return await updateToTop(db, newVideo);
   } catch (err: any) {
     console.log("addToTopOfQueue:", "Something went wrong adding the video to the top of the queue.\n", err);
-    io.to(incomingClientId).emit(SOCKET_EVENT_KEYS.error, "Something went wrong adding the video to the top of the queue.");
     return null;
   }
 }
