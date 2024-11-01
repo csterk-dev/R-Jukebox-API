@@ -123,3 +123,10 @@ type QueueRequest = {
   success: boolean;
   errorMessage?: string;
  }
+
+
+/** Ensure cleint and server match. */
+ type InfoAcknowledgment = {
+  title: string;
+  description?: string;
+ }

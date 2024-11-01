@@ -107,14 +107,14 @@ export function handleSocketConnection(io: WsServer, socket: Socket, db: Databas
       });
       return
     }
-    
+
     console.log("Socket:", "Added video to bottom of queue", req.video.title);
     ackCallback({ success: true });
 
     state.queue = updatedQueue;
     io.emit(SOCKET_EVENT_KEYS.queue, state.queue);
   });
-  
+
 
   /**
    * Endpoint to add a video to the start of the queue.
@@ -253,6 +253,9 @@ function startCheckForEndOfVideo(io: WsServer, db: Database, state: StateType) {
           io.emit(SOCKET_EVENT_KEYS.queue, state.queue);
 
           if (nextVideo) {
+            io.emit(SOCKET_EVENT_KEYS.info, {
+              title: "Loading next queue video..."
+            } as InfoAcknowledgment);
             await handlePlayNextVideo(io, db, state, nextVideo);
           }
         }
@@ -274,6 +277,9 @@ function startCheckForEndOfVideo(io: WsServer, db: Database, state: StateType) {
         io.emit(SOCKET_EVENT_KEYS.queue, state.queue);
 
         if (nextVideo) {
+          io.emit(SOCKET_EVENT_KEYS.info, {
+            title: "Loading next queue video..."
+          } as InfoAcknowledgment);
           await handlePlayNextVideo(io, db, state, nextVideo);
         }
 

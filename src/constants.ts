@@ -41,6 +41,8 @@ export const SOCKET_EVENT_KEYS = {
   getInitialState: "get-initial-state",
   /** Gets the history. */
   history: "history",
+  /** Used for general information on player or queue updates. */
+  info: "info",
   /** If the player is loading. */
   isLoading: "is-loading",
   /** Gets the value from the isPlaying boolean. */
