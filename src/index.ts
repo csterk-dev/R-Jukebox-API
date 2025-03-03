@@ -5,7 +5,7 @@ import path from "path";
 import BodyParser from "body-parser";
 import { Browser, Frame, Page } from "puppeteer";
 import { youtubeRouter } from "./routes/youtubeRoutes";
-import { handleSocketConnection } from "./controllers/websocketHandlers";
+import { onSocketConnection } from "./controllers/websocket";
 import { getHistoryItems, getQueueItems, initialiseDBConnection } from "./services/database";
 import { initialiseWebSocketServer } from "./services/websockets";
 import { initialsePuppeteerBrowser } from "./services/puppeteer";
@@ -83,5 +83,5 @@ app.use("/youtube", youtubeRouter);
  */
 const server = app.listen(PORT, () => console.log(aliveMessage));
 const io = initialiseWebSocketServer(server);
-io.on("connection", (socket) => db && handleSocketConnection(io, socket, db, state));
-server.on("error", console.log);
+io.on("connection", (socket) => db && onSocketConnection(io, socket, db, state));
+server.on("error", console.error);
