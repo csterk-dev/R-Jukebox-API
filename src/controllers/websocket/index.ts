@@ -31,7 +31,7 @@ export function onSocketConnection(io: WsServer, socket: Socket, db: Database, s
    * Endpoint to set the current video that is playing.
    */
   socket.on(SOCKET_EVENT_KEYS.setCurrentVideo, async (req: VideoRequest, resCallback: (ack: WSAcknowledgement) => void) => {
-    await handlePlayNextVideo(io, db, state, req, resCallback);
+    await handlePlayNextVideo(db, io, state, req, resCallback);
   });
 
 
@@ -39,7 +39,7 @@ export function onSocketConnection(io: WsServer, socket: Socket, db: Database, s
    * Endpoint to toggle the video playing state.
    */
   socket.on(SOCKET_EVENT_KEYS.setIsPlaying, async (req: PlayPauseRequest, resCallback: (ack: WSAcknowledgement) => void) => {
-    await handlePlayPause(io, state, req, resCallback);
+    await handlePlayPause(db, io, state, req, resCallback);
   });
 
 
@@ -47,7 +47,7 @@ export function onSocketConnection(io: WsServer, socket: Socket, db: Database, s
    * Endpoint to update the player volume.
    */
   socket.on(SOCKET_EVENT_KEYS.setPlayerVolume, async (req: UpdatePlayerVolumeRequest, resCallback: (ack: WSAcknowledgement) => void) => {
-    await handleVolumeChange(io, state, req, resCallback);
+    await handleVolumeChange(db, io, state, req, resCallback);
   });
 
 
@@ -55,7 +55,7 @@ export function onSocketConnection(io: WsServer, socket: Socket, db: Database, s
    * Endpoint to update the player progress.
    */
   socket.on(SOCKET_EVENT_KEYS.setCurrentVideoTime, async (req: UpdatePlayerTimestampRequest, resCallback: (ack: WSAcknowledgement) => void) => {
-    await handleProgressChange(io, state, req, resCallback);
+    await handleProgressChange(db, io, state, req, resCallback);
   });
 
 

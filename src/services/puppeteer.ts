@@ -51,7 +51,9 @@ export async function playVideo(io: WsServer, videoId: string, state: StateType)
       playerElements: null,
       successState: {
         success: false,
-        errorMessage: "No browser found. Refresh and try again."
+        errorMessage: "No browser found. Refresh and try again.",
+        stackTrace: "No browser found. Refresh and try again.",
+        callingFunction: "playVideo"
       }
     }
   }
@@ -93,7 +95,9 @@ export async function playVideo(io: WsServer, videoId: string, state: StateType)
           playerElements: null,
           successState: {
             success: false,
-            errorMessage: "Page Iframe not ready."
+            errorMessage: "Page Iframe not ready.",
+            stackTrace: "Page Iframe not ready.",
+            callingFunction: "playVideo"
           }
         }
       }
@@ -116,7 +120,9 @@ export async function playVideo(io: WsServer, videoId: string, state: StateType)
           playerElements: null,
           successState: {
             success: false,
-            errorMessage: "Video unavailable in this region"
+            errorMessage: "Video unavailable in this region",
+            stackTrace: "Video unavailable in this region",
+            callingFunction: "playVideo"
           }
         }
       }
@@ -169,7 +175,8 @@ export async function playVideo(io: WsServer, videoId: string, state: StateType)
         successState: {
           success: false,
           errorMessage: "Something went wrong finding the Youtube video.",
-          stackTrace: err
+          stackTrace: err,
+          callingFunction: "playVideo"
         }
       }
     }
@@ -183,7 +190,8 @@ export async function playVideo(io: WsServer, videoId: string, state: StateType)
       successState: {
         success: false,
         errorMessage: "An error occured accessing the browser",
-        stackTrace: err
+        stackTrace: err,
+        callingFunction: "playVideo"
       }
     }
   } finally {
@@ -213,7 +221,9 @@ export async function togglePlayingState(iFrame: Frame, isPlayingState: boolean)
       // io.to(incomingClientId).emit(SOCKET_EVENT_KEYS.error, "Video unavailable.");
       return {
         success: false,
-        errorMessage: "Video unavailable"
+        errorMessage: "Video unavailable",
+        callingFunction: "togglePlayingState",
+        stackTrace: "Video unavailable"
       }
     }
 
@@ -241,6 +251,7 @@ export async function togglePlayingState(iFrame: Frame, isPlayingState: boolean)
     return {
       success: false,
       errorMessage: `Something went wrong ${isPlayingState ? "resuming" : "pausing"} the video`,
+      callingFunction: "togglePlayingState",
       stackTrace: err
     }
   }
@@ -362,7 +373,9 @@ export async function adjustPlayerVolume(currentPage: Page, iFrame: Frame, level
       // return 1;
       return {
         success: false,
-        errorMessage: "Cannot find volume bounding box"
+        errorMessage: "Cannot find volume bounding box",
+        callingFunction: "adjustPlayerVolume",
+        stackTrace: "Cannot find volume bounding box"
       }
     }
 
@@ -375,7 +388,8 @@ export async function adjustPlayerVolume(currentPage: Page, iFrame: Frame, level
     return {
       success: false,
       errorMessage: "An error occured adjusting the player volume",
-      stackTrace: err
+      stackTrace: err,
+      callingFunction: "adjustPlayerVolume"
     }
   }
 }
@@ -397,7 +411,9 @@ export async function adjustPlayerProgress(currentPage: Page, iFrame: Frame, dur
       // io.to(incomingClientId).emit(SOCKET_EVENT_KEYS.error, "Cannot find progress bounding box.");
       return {
         success: false,
-        errorMessage: "Cannot find progress bounding box"
+        errorMessage: "Cannot find progress bounding box",
+        callingFunction: "adjustPlayerProgress",
+        stackTrace: "Cannot find progress bounding box"
       }
     }
 
@@ -410,7 +426,8 @@ export async function adjustPlayerProgress(currentPage: Page, iFrame: Frame, dur
     return {
       success: false,
       errorMessage: "An error occured adjusting the player progress",
-      stackTrace: err
+      stackTrace: err,
+      callingFunction: "adjustPlayerProgress"
     }
   }
 }

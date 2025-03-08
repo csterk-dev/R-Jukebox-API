@@ -6,7 +6,7 @@ import BodyParser from "body-parser";
 import { Browser, Frame, Page } from "puppeteer";
 import { youtubeRouter } from "./routes/youtubeRoutes";
 import { onSocketConnection } from "./controllers/websocket";
-import { getHistoryItems, getQueueItems, initialiseDBConnection } from "./services/database";
+import { getHistoryItems, getLogEntries, getQueueItems, initialiseDBConnection } from "./services/database";
 import { initialiseWebSocketServer } from "./services/websockets";
 import { initialsePuppeteerBrowser } from "./services/puppeteer";
 import { PLAYER_VOLUME_DEFAULT, PORT } from "./constants";
@@ -26,6 +26,7 @@ export type StateType = {
   playerFrame: Frame | null;
   playerVolume: number;
   queue: Video[];
+  logs: EntryLog[];
 }
 
 
@@ -53,7 +54,8 @@ const state: StateType = {
   isIntervalRunning: false,
   playerFrame: null,
   playerVolume: PLAYER_VOLUME_DEFAULT,
-  queue: []
+  queue: [],
+  logs: []
 }
 
 
@@ -72,6 +74,9 @@ const aliveMessage = `The server is running on port ${PORT}, on platform ${osPla
 
   const queueRes = await getQueueItems(db);
   queueRes.successState.success ? state.queue = queueRes.videos : undefined;
+
+  const logsRes = await getLogEntries(db);
+  logsRes.successState.success ? state.logs = logsRes.logs : undefined;
 })();
 app.get("/", (req, res) => res.status(200).send({ message: aliveMessage }));
 app.get("/player/:videoId", (req, res) => res.sendFile(path.join(__dirname, "../public", "player.html")));

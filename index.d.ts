@@ -150,10 +150,28 @@ type WSAcknowledgement = {
 
 
 type DbActionAcknowledgement = WSAcknowledgement & {
+  /** Name of the function that called and caught the error. Useful for nested util functions. */
+  callingFunction?: string;
   stackTrace?: any;
 };
 
 
 type PuppeteerActionAcknowledgement = WSAcknowledgement & {
+  /** Name of the function that called and caught the error. Useful for nested util functions. */
+  callingFunction?: string;
+  /** Stack trace or error message. */
   stackTrace?: any;
+}
+
+
+type NewEntryLog = {
+  type: "error" | "info";
+  callingFunction?: string | null;
+  /** Stack trace or error message. */
+  stackTrace: string | null;
+}
+
+type EntryLog = NewEntryLog & {
+  dateTime: string;
+  id: number;
 }

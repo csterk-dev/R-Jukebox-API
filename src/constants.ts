@@ -48,6 +48,8 @@ export const SOCKET_EVENT_KEYS = {
   isLoading: "is-loading",
   /** Gets the value from the isPlaying boolean. */
   isPlaying: "is-playing",
+  /** Gets the player logs. */
+  logs: "logs",
   /** Gets the next video in the queue. */
   playNextQueueItem: "play-next-queue-item",
   /** Gets the current ooperating player volume level. */
