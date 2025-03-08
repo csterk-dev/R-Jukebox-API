@@ -30,71 +30,71 @@ export function onSocketConnection(io: WsServer, socket: Socket, db: Database, s
   /**
    * Endpoint to set the current video that is playing.
    */
-  socket.on(SOCKET_EVENT_KEYS.setCurrentVideo, async (incomingClientId: string, incomingVideo: Video) => {
-    await handlePlayNextVideo(io, db, state, incomingVideo, incomingClientId);
+  socket.on(SOCKET_EVENT_KEYS.setCurrentVideo, async (req: VideoRequest, resCallback: (ack: WSAcknowledgement) => void) => {
+    await handlePlayNextVideo(io, db, state, req, resCallback);
   });
 
 
   /**
    * Endpoint to toggle the video playing state.
    */
-  socket.on(SOCKET_EVENT_KEYS.setIsPlaying, async (incomingClientId: string, incomingIsPlaying: boolean) => {
-    await handlePlayPause(io, state, incomingClientId, incomingIsPlaying);
+  socket.on(SOCKET_EVENT_KEYS.setIsPlaying, async (req: PlayPauseRequest, resCallback: (ack: WSAcknowledgement) => void) => {
+    await handlePlayPause(io, state, req, resCallback);
   });
 
 
   /**
    * Endpoint to update the player volume.
    */
-  socket.on(SOCKET_EVENT_KEYS.setPlayerVolume, async (incomingClientId: string, incomingPlayerVol: number) => {
-    await handleVolumeChange(io, state, incomingClientId, incomingPlayerVol);
+  socket.on(SOCKET_EVENT_KEYS.setPlayerVolume, async (req: UpdatePlayerVolumeRequest, resCallback: (ack: WSAcknowledgement) => void) => {
+    await handleVolumeChange(io, state, req, resCallback);
   });
 
 
   /**
    * Endpoint to update the player progress.
    */
-  socket.on(SOCKET_EVENT_KEYS.setCurrentVideoTime, async (incomingClientId: string, incomingVideoTime: number) => {
-    await handleProgressChange(io, state, incomingClientId, incomingVideoTime);
+  socket.on(SOCKET_EVENT_KEYS.setCurrentVideoTime, async (req: UpdatePlayerTimestampRequest, resCallback: (ack: WSAcknowledgement) => void) => {
+    await handleProgressChange(io, state, req, resCallback);
   });
 
 
   /**
    * Endpoint to add a video to the end of the queue.
    */
-  socket.on(SOCKET_EVENT_KEYS.addToBottomOfQueue, async (incomingClientId: string, incomingVideo: Video) => {
-    await handleAddToQueue(db, io, state, incomingClientId, incomingVideo, "bottom");
+  socket.on(SOCKET_EVENT_KEYS.addToBottomOfQueue, async (req: VideoRequest, resCallback: (ack: WSAcknowledgement) => void) => {
+    await handleAddToQueue(db, io, state, req, resCallback, "bottom");
   });
 
 
   /**
    * Endpoint to add a video to the start of the queue.
    */
-  socket.on(SOCKET_EVENT_KEYS.addToTopOfQueue, async (incomingClientId: string, incomingVideo: Video) => {
-    await handleAddToQueue(db, io, state, incomingClientId, incomingVideo, "top");
+  socket.on(SOCKET_EVENT_KEYS.addToTopOfQueue, async (req: VideoRequest, resCallback: (ack: WSAcknowledgement) => void) => {
+    await handleAddToQueue(db, io, state, req, resCallback, "top");
   });
 
 
   /**
    * Endpoint to delete a video form the queue
    */
-  socket.on(SOCKET_EVENT_KEYS.deleteQueueItem, async (incomingClientId: string, videoId: Video["videoId"]) => {
-    await handleDeleteFromQueue(db, io, state, incomingClientId, videoId);
+  socket.on(SOCKET_EVENT_KEYS.deleteQueueItem, async (req: RemoveQueueItemRequest, resCallback: (ack: WSAcknowledgement) => void) => {
+    await handleDeleteFromQueue(db, io, state, req, resCallback);
   });
 
 
   /**
    * Endpoint to play to the next queue item.
    */
-  socket.on(SOCKET_EVENT_KEYS.playNextQueueItem, async (incomingClientId: string) => {
-    await handlePlayNextFromQueue(db, io, state, incomingClientId);
+  socket.on(SOCKET_EVENT_KEYS.playNextQueueItem, async (req: BaseRequest, resCallback: (ack: WSAcknowledgement) => void) => {
+    await handlePlayNextFromQueue(db, io, state, req, resCallback);
   });
 
 
   /**
    * Endpoint to clear the queue.
    */
-  socket.on(SOCKET_EVENT_KEYS.clearQueue, async (incomingClientId: string) => {
-    await handleClearQueue(db, io, state, incomingClientId);
+  socket.on(SOCKET_EVENT_KEYS.clearQueue, async (req: BaseRequest, resCallback: (ack: WSAcknowledgement) => void) => {
+    await handleClearQueue(db, io, state, req, resCallback);
   });
 }

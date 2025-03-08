@@ -7,7 +7,10 @@ export const PORT = 3001;
 export const PLAYER_URL = `http://localhost:${PORT}/player`;
 export const PLAYER_VOLUME_DEFAULT = 30.
 export const PLAYER_CHECK_VIDEO_INTERVAL = 5000;
-/** @deprecated Youtube browser no longer supported. Use `PLAYER_URL` instead for static page player. */
+/** 
+ * @deprecated Youtube browser no longer supported. This variable was previously used for testing purposes. 
+ * Use `PLAYER_URL` instead for static page player. 
+ */
 export const YOUTUBE_BROWSER_WATCH_PAGE_URL = "https://www.youtube.com/watch?v=";
 
 
@@ -35,7 +38,7 @@ export const SOCKET_EVENT_KEYS = {
   currentVideoTime: "current-video-time",
   /** Deletes the provided item from the queue. */
   deleteQueueItem: "delete-queue-item",
-  /** Any error values. */
+  /** Used to broadcast any errors to all connected clients, in instances that a websocket response acknowledgement callback is not/cannot be present. */
   error: "error",
   /** Used to return the current state to the newly connect client. */
   getInitialState: "get-initial-state",
@@ -77,6 +80,7 @@ export const TIME_DURATION_SELECTOR = ".ytp-time-duration";
 export const TIMELINE_SELECTOR = ".ytp-progress-list";
 export const VOLUME_BUTTON_SELECTOR = '.ytp-mute-button';
 export const VOLUME_SLIDER_CONTAINER_SELECTOR = '.ytp-volume-slider';
-// class="ytp-ad-skip-button-modern"
 
-//<div class="ytp-error-content-wrap-reason"><span>An error occurred. Please try again later. (Playback ID: buUDvEaZ4oDNuqR8) <br><a class="ytp-error-link" href="//support.google.com/youtube/?p=player_error1&amp;hl=en-GB" target="_blank">Learn More</a></span></div>
+/** Selector notes: */
+// class="ytp-ad-skip-button-modern"
+// <div class="ytp-error-content-wrap-reason"><span>An error occurred. Please try again later. (Playback ID: buUDvEaZ4oDNuqR8) <br><a class="ytp-error-link" href="//support.google.com/youtube/?p=player_error1&amp;hl=en-GB" target="_blank">Learn More</a></span></div>

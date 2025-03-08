@@ -68,10 +68,10 @@ const aliveMessage = `The server is running on port ${PORT}, on platform ${osPla
   state.browser = await initialsePuppeteerBrowser(osPlatform);
 
   const historyRes = await getHistoryItems(db);
-  historyRes ? state.history = historyRes : undefined;
+  historyRes.successState.success ? state.history = historyRes.videos : undefined;
 
   const queueRes = await getQueueItems(db);
-  queueRes ? state.queue = queueRes : undefined;
+  queueRes.successState.success ? state.queue = queueRes.videos : undefined;
 })();
 app.get("/", (req, res) => res.status(200).send({ message: aliveMessage }));
 app.get("/player/:videoId", (req, res) => res.sendFile(path.join(__dirname, "../public", "player.html")));

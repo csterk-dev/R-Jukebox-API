@@ -32,16 +32,28 @@ export async function initialsePuppeteerBrowser(osPlatform: NodeJS.Platform) {
   }
 }
 
-
+type PlayVideoReturnType = {
+  playerElements: {
+    currentPage: Page; iFrame: Frame;
+  } | null
+  successState: PuppeteerActionAcknowledgement;
+}
 
 /**
  * Closes any previous player pages and opens a new player page with the supplied `videoId`.
  * @returns The newly created page and player iframe or null if an error occurs.
  */
-export async function playVideo(io: WsServer, videoId: string, state: StateType): Promise<{ currentPage: Page; iFrame: Frame; } | null> {
+export async function playVideo(io: WsServer, videoId: string, state: StateType): Promise<PlayVideoReturnType> {
   if (!state.browser) {
-    io.emit(SOCKET_EVENT_KEYS.error, "No browser found. Refresh and try again.");
-    return null;
+    // io.emit(SOCKET_EVENT_KEYS.error, "No browser found. Refresh and try again.");
+    // return null;
+    return {
+      playerElements: null,
+      successState: {
+        success: false,
+        errorMessage: "No browser found. Refresh and try again."
+      }
+    }
   }
 
   state.isLoading = true;
@@ -75,8 +87,15 @@ export async function playVideo(io: WsServer, videoId: string, state: StateType)
       const iframeElementHandle = await currentPage.$(IFRAME_SELECTOR);
       if (!iframeElementHandle) {
         console.error("PlayVideo:", "Iframe not ready.");
-        io.emit(SOCKET_EVENT_KEYS.error, "Iframe not ready.");
-        return null;
+        // io.emit(SOCKET_EVENT_KEYS.error, "Iframe not ready.");
+        // return null;
+        return {
+          playerElements: null,
+          successState: {
+            success: false,
+            errorMessage: "Page Iframe not ready."
+          }
+        }
       }
 
       const iFrame = await iframeElementHandle.contentFrame();
@@ -90,9 +109,16 @@ export async function playVideo(io: WsServer, videoId: string, state: StateType)
 
       // If the play button returns null, then the video is unavailable (delisted, unavailable in this region or an error occured loading in the iframe).
       if (!playButton) {
-        console.error("PlayVideo:", "Video unavailable.");
-        io.emit(SOCKET_EVENT_KEYS.error, "Video unavailable.");
-        return null;
+        console.error("PlayVideo:", "Video unavailable in this region.");
+        // io.emit(SOCKET_EVENT_KEYS.error, "Video unavailable.");
+        // return null;
+        return {
+          playerElements: null,
+          successState: {
+            success: false,
+            errorMessage: "Video unavailable in this region"
+          }
+        }
       }
 
       /*
@@ -107,7 +133,7 @@ export async function playVideo(io: WsServer, videoId: string, state: StateType)
 
       const volExitCode = await setPlayerVolume(currentPage, iFrame, state.playerVolume);
       if (volExitCode === 1) {
-        io.emit(SOCKET_EVENT_KEYS.error, `Unable to set initial player volume to: ${state.playerVolume}%.`);
+        console.error(`Unable to set initial player volume to: ${state.playerVolume}%.`)
       }
 
       state.currentVideoTime = 0;
@@ -117,29 +143,49 @@ export async function playVideo(io: WsServer, videoId: string, state: StateType)
         playButton.click();
         console.log("PlayVideo:", "Video started.");
         return {
-          currentPage,
-          iFrame
+          playerElements: {
+            currentPage,
+            iFrame
+          },
+          successState: { success: true }
         }
       }
 
       console.log("PlayVideo:", "Video already playing.");
       return {
-        currentPage,
-        iFrame
+        playerElements: {
+          currentPage,
+          iFrame
+        },
+        successState: { success: true }
       }
 
     } catch (err: any) {
       console.error("PlayVideo:", "Something went wrong finding the youtube video.\n", err);
-      io.emit(SOCKET_EVENT_KEYS.error, "Something went wrong finding the youtube video.");
-      return null;
-
+      // io.emit(SOCKET_EVENT_KEYS.error, "Something went wrong finding the youtube video.");
+      // return null;
+      return {
+        playerElements: null,
+        successState: {
+          success: false,
+          errorMessage: "Something went wrong finding the Youtube video.",
+          stackTrace: err
+        }
+      }
     }
 
   } catch (err: any) {
     console.error("PlayVideo:", "An error occured accessing the browser.\n", err);
-    io.emit(SOCKET_EVENT_KEYS.error, "An error occured accessing the browser.");
-    return null;
-
+    // io.emit(SOCKET_EVENT_KEYS.error, "An error occured accessing the browser.");
+    // return null;
+    return {
+      playerElements: null,
+      successState: {
+        success: false,
+        errorMessage: "An error occured accessing the browser",
+        stackTrace: err
+      }
+    }
   } finally {
     state.isLoading = false;
     io.emit(SOCKET_EVENT_KEYS.isLoading, state.isLoading);
@@ -152,7 +198,7 @@ export async function playVideo(io: WsServer, videoId: string, state: StateType)
  * Attempts to find the play/pause button within the iFrame and handles the action accordingly.
  * @returns An exit code: error == 1, OK == 0.
  */
-export async function togglePlayingState(io: WsServer, incomingClientId: string, iFrame: Frame, isPlayingState: boolean): Promise<0 | 1> {
+export async function togglePlayingState(iFrame: Frame, isPlayingState: boolean): Promise<PuppeteerActionAcknowledgement> {
   try {
     // Attempt to find the selector for 10seconds 
     const playButton = await iFrame.waitForSelector(PLAY_BUTTON_SELECTOR, {
@@ -164,8 +210,11 @@ export async function togglePlayingState(io: WsServer, incomingClientId: string,
     // If the play button returns null, then the video is unavailable (delisted or unavailable in this region).
     if (!playButton) {
       console.error("ToggleVideoPlayingState:", "Video unavailable.");
-      io.to(incomingClientId).emit(SOCKET_EVENT_KEYS.error, "Video unavailable.");
-      return 1;
+      // io.to(incomingClientId).emit(SOCKET_EVENT_KEYS.error, "Video unavailable.");
+      return {
+        success: false,
+        errorMessage: "Video unavailable"
+      }
     }
 
     /*
@@ -183,24 +232,30 @@ export async function togglePlayingState(io: WsServer, incomingClientId: string,
       playButton.click();
       console.log("ToggleVideoPlayingState:", "Video played.");
     }
-    return 0;
+    return { success: true }
 
   } catch (err: any) {
     console.error("ToggleVideoPlayingState:", `Something went wrong ${isPlayingState ? "resuming" : "pausing"} the video.\n`, err);
-    io.to(incomingClientId).emit(SOCKET_EVENT_KEYS.error, `Something went wrong ${isPlayingState ? "resuming" : "pausing"} the video.`);
-    return 1;
-
+    // io.to(incomingClientId).emit(SOCKET_EVENT_KEYS.error, `Something went wrong ${isPlayingState ? "resuming" : "pausing"} the video.`);
+    // return 1;
+    return {
+      success: false,
+      errorMessage: `Something went wrong ${isPlayingState ? "resuming" : "pausing"} the video`,
+      stackTrace: err
+    }
   }
 }
 
 type CheckForEndOfVideoReturn = {
-  data: { hasEnded: boolean, currentTime: number } | null;
+  playerState: {
+    hasEnded: boolean,
+    currentTime: number
+  } | null;
   checkStatus: "success" | "error" | "error-ignored";
 }
 
 /**
  * Checks if the current video playing in the YouTube iframe has ended.
- * @returns {Promise<{ hasEnded: boolean, currentTime: number } | number>} 
  * Returns null if an error occurs or an object with `hasEnded` and `currentTime` properties.
  */
 export async function checkForEndOfVideo(iFrame: Frame): Promise<CheckForEndOfVideoReturn> {
@@ -217,7 +272,7 @@ export async function checkForEndOfVideo(iFrame: Frame): Promise<CheckForEndOfVi
       console.error("CheckForEndOfVideo:", "Playback error detected.");
       return {
         checkStatus: "error",
-        data: null
+        playerState: null
       };
     }
 
@@ -225,7 +280,7 @@ export async function checkForEndOfVideo(iFrame: Frame): Promise<CheckForEndOfVi
       console.error("CheckForEndOfVideo:", "Cannot get time elements.");
       return {
         checkStatus: "error",
-        data: null
+        playerState: null
       };
     }
 
@@ -236,7 +291,7 @@ export async function checkForEndOfVideo(iFrame: Frame): Promise<CheckForEndOfVi
       console.error("CheckForEndOfVideo:", "Cannot read video times.");
       return {
         checkStatus: "error",
-        data: null
+        playerState: null
       };
     }
 
@@ -251,7 +306,7 @@ export async function checkForEndOfVideo(iFrame: Frame): Promise<CheckForEndOfVi
       console.log("CheckForEndOfVideo", "Video has ended.");
       return {
         checkStatus: "success",
-        data: {
+        playerState: {
           hasEnded: true,
           currentTime: 0
         }
@@ -259,7 +314,7 @@ export async function checkForEndOfVideo(iFrame: Frame): Promise<CheckForEndOfVi
     }
     return {
       checkStatus: "success",
-      data: {
+      playerState: {
         hasEnded: false,
         currentTime: currentTimeSec
       }
@@ -277,14 +332,14 @@ export async function checkForEndOfVideo(iFrame: Frame): Promise<CheckForEndOfVi
       console.error("CheckForEndOfVideo error:\n", "Detached frame deteched - ignoring");
       return {
         checkStatus: "error-ignored",
-        data: null
+        playerState: null
       };
     }
 
     console.error("CheckForEndOfVideo error:\n", error);
     return {
       checkStatus: "error",
-      data: null
+      playerState: null
     };
   }
 }
@@ -294,7 +349,7 @@ export async function checkForEndOfVideo(iFrame: Frame): Promise<CheckForEndOfVi
  * Updates the player's volume to the be the new level.
  * @returns An exit code: error == 1, OK == 0.
  */
-export async function adjustPlayerVolume(io: WsServer, incomingClientId: string, currentPage: Page, iFrame: Frame, level: number): Promise<0 | 1> {
+export async function adjustPlayerVolume(currentPage: Page, iFrame: Frame, level: number): Promise<PuppeteerActionAcknowledgement> {
   try {
 
     // Ensure no invalid value can be recieved from the UI
@@ -303,16 +358,25 @@ export async function adjustPlayerVolume(io: WsServer, incomingClientId: string,
     const exitCode = await setPlayerVolume(currentPage, iFrame, levelVal);
     if (exitCode === 1) {
       console.error("adjustPlayerVolume:", "Cannot find volume bounding box.");
-      io.to(incomingClientId).emit(SOCKET_EVENT_KEYS.error, "Cannot find volume bounding box.");
-      return 1;
+      // io.to(incomingClientId).emit(SOCKET_EVENT_KEYS.error, "Cannot find volume bounding box.");
+      // return 1;
+      return {
+        success: false,
+        errorMessage: "Cannot find volume bounding box"
+      }
     }
 
-    return 0;
+    return { success: true }
 
   } catch (err: any) {
     console.error("adjustPlayerVolume:", "An error occured adjusting the player volume.\n", err);
-    io.to(incomingClientId).emit(SOCKET_EVENT_KEYS.error, "An error occured adjusting the player volume.");
-    return 1;
+    // io.to(incomingClientId).emit(SOCKET_EVENT_KEYS.error, "An error occured adjusting the player volume.");
+    // return 1;
+    return {
+      success: false,
+      errorMessage: "An error occured adjusting the player volume",
+      stackTrace: err
+    }
   }
 }
 
@@ -321,26 +385,33 @@ export async function adjustPlayerVolume(io: WsServer, incomingClientId: string,
  * Updates the player's current progress.
  * @returns An exit code: error == 1, OK == 0.
  */
-export async function adjustPlayerProgress(io: WsServer, incomingClientId: string, currentPage: Page, iFrame: Frame, durationSeconds: number, newTimeSeconds: number): Promise<0 | 1> {
+export async function adjustPlayerProgress(currentPage: Page, iFrame: Frame, durationSeconds: number, newTimeSeconds: number): Promise<PuppeteerActionAcknowledgement> {
 
   try {
-
     // Don't allow any incorrect values to be set
     const newTime = newTimeSeconds > durationSeconds ? durationSeconds : newTimeSeconds < 0 ? 0 : newTimeSeconds;
 
     const exitCode = await setPlayerProgress(currentPage, iFrame, durationSeconds, newTime);
     if (exitCode === 1) {
       console.error("adjustPlayerProgress:", "Cannot find progress bounding box.");
-      io.to(incomingClientId).emit(SOCKET_EVENT_KEYS.error, "Cannot find progress bounding box.");
-      return 1;
+      // io.to(incomingClientId).emit(SOCKET_EVENT_KEYS.error, "Cannot find progress bounding box.");
+      return {
+        success: false,
+        errorMessage: "Cannot find progress bounding box"
+      }
     }
 
-    return 0;
+    return { success: true }
 
   } catch (err: any) {
-    console.error("adjustPlayerProgress:", "An error occured adjusting the player's progress.\n", err);
-    io.to(incomingClientId).emit(SOCKET_EVENT_KEYS.error, "An error occured adjusting the player's progress.");
-    return 1;
+    console.error("adjustPlayerProgress:", "An error occured adjusting the player progress.\n", err);
+    // io.to(incomingClientId).emit(SOCKET_EVENT_KEYS.error, "An error occured adjusting the player progress.");
+    // return 1;
+    return {
+      success: false,
+      errorMessage: "An error occured adjusting the player progress",
+      stackTrace: err
+    }
   }
 }
 
