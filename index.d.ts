@@ -149,24 +149,23 @@ type WSAcknowledgement = {
 }
 
 
-type DbActionAcknowledgement = WSAcknowledgement & {
-  /** Name of the function that called and caught the error. Useful for nested util functions. */
-  callingFunction?: string;
-  stackTrace?: any;
-};
+type ConditionalAcknowledgement<T extends boolean> 
+= WSAcknowledgement 
+& (T extends true 
+  // If success is true, exclude stackTrace and callingFunction
+    ? { success: true } 
+    // If success is false, include them
+    : { success: false } & Pick<NewEntryLog, "callingFunction" | "stackTrace"> 
+  );
 
+type DbActionAcknowledgement = ConditionalAcknowledgement<boolean>;
 
-type PuppeteerActionAcknowledgement = WSAcknowledgement & {
-  /** Name of the function that called and caught the error. Useful for nested util functions. */
-  callingFunction?: string;
-  /** Stack trace or error message. */
-  stackTrace?: any;
-}
-
+type PuppeteerActionAcknowledgement = ConditionalAcknowledgement<boolean>;
 
 type NewEntryLog = {
   type: "error" | "info";
-  callingFunction?: string | null;
+  /** Name of the function that called and caught the error. Useful for nested util functions. */
+  callingFunction: string;
   /** Stack trace or error message. */
   stackTrace: string | null;
 }

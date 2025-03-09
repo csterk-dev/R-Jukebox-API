@@ -476,23 +476,25 @@ export async function handlePlayNextVideo(db: Database, io: WsServer, state: Sta
       io.emit(SOCKET_EVENT_KEYS.error, res.successState.errorMessage);
     }
 
-    const newLogEntry: NewEntryLog = {
-      type: "error",
-      stackTrace: res.successState.stackTrace,
-      callingFunction: res.successState.callingFunction
-    }
-    const updatedLogsRes = await updateLogEntries(db, newLogEntry);
+    if (!res.successState.success) {
+      const newLogEntry: NewEntryLog = {
+        type: "error",
+        stackTrace: res.successState.stackTrace,
+        callingFunction: res.successState.callingFunction
+      }
+      const updatedLogsRes = await updateLogEntries(db, newLogEntry);
 
-    /* 
-     * If updating the log entries failed on first attempt, notify via the global error state var instead.
-     */
-    if (!updatedLogsRes.successState.success) {
-      io.emit(SOCKET_EVENT_KEYS.error, "Unable to update error logs");
-      return
-    }
+      /* 
+      * If updating the log entries failed on first attempt, notify via the global error state var instead.
+      */
+      if (!updatedLogsRes.successState.success) {
+        io.emit(SOCKET_EVENT_KEYS.error, "Unable to update error logs");
+        return
+      }
 
-    state.logs = updatedLogsRes.logs;
-    io.emit(SOCKET_EVENT_KEYS.logs, state.logs);
+      state.logs = updatedLogsRes.logs;
+      io.emit(SOCKET_EVENT_KEYS.logs, state.logs);
+    }
     return;
   }
 

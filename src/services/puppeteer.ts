@@ -32,18 +32,18 @@ export async function initialsePuppeteerBrowser(osPlatform: NodeJS.Platform) {
   }
 }
 
-type PlayVideoReturnType = {
-  playerElements: {
-    currentPage: Page; iFrame: Frame;
-  } | null
-  successState: PuppeteerActionAcknowledgement;
-}
+type PlayVideoReturnType<T extends boolean> = {
+  playerElements: T extends true 
+    ? { currentPage: Page; iFrame: Frame } | null 
+    : never;
+  successState: ConditionalAcknowledgement<T>;
+};
 
 /**
  * Closes any previous player pages and opens a new player page with the supplied `videoId`.
  * @returns The newly created page and player iframe or null if an error occurs.
  */
-export async function playVideo(io: WsServer, videoId: string, state: StateType): Promise<PlayVideoReturnType> {
+export async function playVideo(io: WsServer, videoId: string, state: StateType): Promise<PlayVideoReturnType<boolean>> {
   if (!state.browser) {
     // io.emit(SOCKET_EVENT_KEYS.error, "No browser found. Refresh and try again.");
     // return null;
