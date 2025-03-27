@@ -2,7 +2,7 @@ import { SOCKET_EVENT_KEYS } from "../../constants";
 import { Socket, Server as WsServer } from "socket.io";
 import { Database } from "sqlite3";
 import { StateType } from "index";
-import { handleAddToQueue, handleClearQueue, handleDeleteFromQueue, handlePlayNextFromQueue, handlePlayNextVideo, handlePlayPause, handleProgressChange, handleVolumeChange } from "./handlers";
+import { handleAddToQueue, handleClearQueue, handleDeleteFromQueue, handlePlayNextFromQueue, handlePlayPause, handlePlayVideo, handleProgressChange, handleVolumeChange } from "./handlers";
 
 
 /**
@@ -23,6 +23,7 @@ export function onSocketConnection(io: WsServer, socket: Socket, db: Database, s
       io.to(incomingClientId).emit(SOCKET_EVENT_KEYS.playerVolume, state.playerVolume);
       io.to(incomingClientId).emit(SOCKET_EVENT_KEYS.queue, state.queue);
       io.to(incomingClientId).emit(SOCKET_EVENT_KEYS.history, state.history);
+      io.to(incomingClientId).emit(SOCKET_EVENT_KEYS.logs, state.logs);
     }, 200);
   });
 
@@ -31,7 +32,7 @@ export function onSocketConnection(io: WsServer, socket: Socket, db: Database, s
    * Endpoint to set the current video that is playing.
    */
   socket.on(SOCKET_EVENT_KEYS.setCurrentVideo, async (req: VideoRequest, resCallback: (ack: WSAcknowledgement) => void) => {
-    await handlePlayNextVideo(db, io, state, req, resCallback);
+    await handlePlayVideo(db, io, state, req, resCallback);
   });
 
 
