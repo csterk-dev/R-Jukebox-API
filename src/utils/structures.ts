@@ -6,6 +6,9 @@ interface IQueue<T> {
   size(): number;
 }
 
+/**
+ * @todo Will be implemented when adding call stacks.
+ */
 export class Queue<T> implements IQueue<T> {
   private storage: T[] = [];
 

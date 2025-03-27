@@ -6,7 +6,7 @@ import BodyParser from "body-parser";
 import { Browser, Frame, Page } from "puppeteer";
 import { youtubeRouter } from "./routes/youtubeRoutes";
 import { onSocketConnection } from "./controllers/websocket";
-import { getHistoryItems, getLogEntries, getQueueItems, initialiseDBConnection } from "./services/database";
+import { getHistoryItems, getLogEntries, getQueueItems, initialiseDBConnection, updateLogEntries } from "./services/database";
 import { initialiseWebSocketServer } from "./services/websockets";
 import { initialsePuppeteerBrowser } from "./services/puppeteer";
 import { PLAYER_VOLUME_DEFAULT, PORT } from "./constants";
@@ -69,14 +69,58 @@ const aliveMessage = `The server is running on port ${PORT}, on platform ${osPla
   db = await initialiseDBConnection();
   state.browser = await initialsePuppeteerBrowser(osPlatform);
 
+
   const historyRes = await getHistoryItems(db);
-  historyRes.successState.success ? state.history = historyRes.videos : undefined;
+  if (!historyRes.successState.success) {
+    const getHistoryEntry: NewEntryLog = {
+      type: "error",
+      stackTrace: historyRes.successState.stackTrace,
+      callingFunction: historyRes.successState.callingFunction
+    }
+    const updatedLogsRes = await updateLogEntries(db, getHistoryEntry);
+    if (!updatedLogsRes.successState.success) console.error(`Failed to update logs with recent error from ${updatedLogsRes.successState.callingFunction}`);
+  }
+
 
   const queueRes = await getQueueItems(db);
-  queueRes.successState.success ? state.queue = queueRes.videos : undefined;
+  if (!queueRes.successState.success) {
+    const getQueueEntry: NewEntryLog = {
+      type: "error",
+      stackTrace: queueRes.successState.stackTrace,
+      callingFunction: queueRes.successState.callingFunction
+    }
+    const updatedLogsRes = await updateLogEntries(db, getQueueEntry);
+    if (!updatedLogsRes.successState.success) console.error(`Failed to update logs with recent error from ${updatedLogsRes.successState.callingFunction}`);
+  }
+
 
   const logsRes = await getLogEntries(db);
-  logsRes.successState.success ? state.logs = logsRes.logs : undefined;
+  if (!logsRes.successState.success) {
+    const getLogsEntry: NewEntryLog = {
+      type: "error",
+      stackTrace: logsRes.successState.stackTrace,
+      callingFunction: logsRes.successState.callingFunction
+    }
+    const updatedLogsRes = await updateLogEntries(db, getLogsEntry);
+    if (!updatedLogsRes.successState.success) console.error(`Failed to update logs with recent error from ${updatedLogsRes.successState.callingFunction}`);
+  }
+
+
+  if (!historyRes.successState.success && !queueRes.successState.success && !logsRes.successState.success) {
+    throw new Error(
+      `Failed to retrieve all state variables from the database. 
+      \nPlease check DB connection and try again. 
+      \n${historyRes.successState.stackTrace}
+      \n\n${queueRes.successState.stackTrace}
+      \n\n${logsRes.successState.stackTrace}`
+    );
+  }
+
+
+  state.history = historyRes.videos;
+  state.queue = queueRes.videos;
+  state.logs = logsRes.logs;
+  
 })();
 app.get("/", (req, res) => res.status(200).send({ message: aliveMessage }));
 app.get("/player/:videoId", (req, res) => res.sendFile(path.join(__dirname, "../public", "player.html")));

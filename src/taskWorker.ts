@@ -1,5 +1,8 @@
 import { parentPort } from "worker_threads";
 
+/**
+ * @todo Will be implemented when adding call stacks.
+ */
 parentPort?.on("message", (e: MessageEvent<any>) => {
   (async () => {
     const isShuttingDown = e.data[0];
