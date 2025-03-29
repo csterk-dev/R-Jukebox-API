@@ -112,14 +112,65 @@ declare interface HistoryVideo extends Video {
   playedDate: string;
 }
 
-/** Ensure cleint and server match. */
-type QueueRequest = {
-  clientId: string;
-  video: Video
- }
 
-/** Ensure cleint and server match. */
- type QueueAcknowledgement = {
+type BaseRequest = {
+  clientId?: string;
+}
+
+
+type VideoRequest = BaseRequest & {
+  video: Video;
+}
+
+
+type PlayPauseRequest = BaseRequest & {
+  isPlaying: boolean;
+}
+
+
+type UpdatePlayerVolumeRequest = BaseRequest & {
+  volumeLevel: number;
+}
+
+
+type UpdatePlayerTimestampRequest = BaseRequest & {
+  timestamp: number;
+}
+
+
+type RemoveQueueItemRequest = BaseRequest & {
+  videoId: Video["videoId"]
+}
+
+
+type WSAcknowledgement = {
   success: boolean;
   errorMessage?: string;
- }
+}
+
+
+type ConditionalAcknowledgement<T extends boolean> 
+= WSAcknowledgement 
+& (T extends true 
+  // If success is true, exclude stackTrace and callingFunction
+    ? { success: true } 
+    // If success is false, include them
+    : { success: false } & Pick<NewEntryLog, "callingFunction" | "stackTrace"> 
+  );
+
+type DbActionAcknowledgement = ConditionalAcknowledgement<boolean>;
+
+type PuppeteerActionAcknowledgement = ConditionalAcknowledgement<boolean>;
+
+type NewEntryLog = {
+  type: "error" | "info";
+  /** Name of the function that called and caught the error. Useful for nested util functions. */
+  callingFunction: string;
+  /** Stack trace or error message. */
+  stackTrace: string | null;
+}
+
+type EntryLog = NewEntryLog & {
+  dateTime: string;
+  id: number;
+}

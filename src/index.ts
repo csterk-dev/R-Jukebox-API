@@ -5,8 +5,8 @@ import path from "path";
 import BodyParser from "body-parser";
 import { Browser, Frame, Page } from "puppeteer";
 import { youtubeRouter } from "./routes/youtubeRoutes";
-import { handleSocketConnection } from "./controllers/websocketHandlers";
-import { getHistoryItems, getQueueItems, initialiseDBConnection } from "./services/database";
+import { onSocketConnection } from "./controllers/websocket";
+import { initialiseDBConnection, initialiseStateVars } from "./services/database";
 import { initialiseWebSocketServer } from "./services/websockets";
 import { initialsePuppeteerBrowser } from "./services/puppeteer";
 import { PLAYER_VOLUME_DEFAULT, PORT } from "./constants";
@@ -26,6 +26,7 @@ export type StateType = {
   playerFrame: Frame | null;
   playerVolume: number;
   queue: Video[];
+  logs: EntryLog[];
 }
 
 
@@ -53,7 +54,8 @@ const state: StateType = {
   isIntervalRunning: false,
   playerFrame: null,
   playerVolume: PLAYER_VOLUME_DEFAULT,
-  queue: []
+  queue: [],
+  logs: []
 }
 
 
@@ -66,12 +68,12 @@ const aliveMessage = `The server is running on port ${PORT}, on platform ${osPla
 (async () => {
   db = await initialiseDBConnection();
   state.browser = await initialsePuppeteerBrowser(osPlatform);
+  const { history, queue, logs } = await initialiseStateVars(db);
 
-  const historyRes = await getHistoryItems(db);
-  historyRes ? state.history = historyRes : undefined;
+  state.history = history;
+  state.queue = queue;
+  state.logs = logs;
 
-  const queueRes = await getQueueItems(db);
-  queueRes ? state.queue = queueRes : undefined;
 })();
 app.get("/", (req, res) => res.status(200).send({ message: aliveMessage }));
 app.get("/player/:videoId", (req, res) => res.sendFile(path.join(__dirname, "../public", "player.html")));
@@ -83,5 +85,5 @@ app.use("/youtube", youtubeRouter);
  */
 const server = app.listen(PORT, () => console.log(aliveMessage));
 const io = initialiseWebSocketServer(server);
-io.on("connection", (socket) => db && handleSocketConnection(io, socket, db, state));
-server.on("error", console.log);
+io.on("connection", (socket) => db && onSocketConnection(io, socket, db, state));
+server.on("error", console.error);
