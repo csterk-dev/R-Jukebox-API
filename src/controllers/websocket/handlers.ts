@@ -38,7 +38,7 @@ export async function handlePlayPause(db: Database, io: WsServer, state: StateTy
        * If updating the log entries failed on first attempt, notify via the global error state var instead.
        */
       if (!updatedLogsRes.successState.success) {
-        io.emit(SOCKET_EVENT_KEYS.error, "Unable to update error logs");
+        io.emit(SOCKET_EVENT_KEYS.error, `Unable to update logs with recent error from: '${res.callingFunction}'`);
         return
       }
 
@@ -85,7 +85,7 @@ export async function handleVolumeChange(db: Database, io: WsServer, state: Stat
        * If updating the log entries failed on first attempt, notify via the global error state var instead.
        */
       if (!updatedLogsRes.successState.success) {
-        io.emit(SOCKET_EVENT_KEYS.error, "Unable to update error logs");
+        io.emit(SOCKET_EVENT_KEYS.error, `Failed to update logs with recent error from: '${res.callingFunction}'`);
         return
       }
 
@@ -132,7 +132,7 @@ export async function handleProgressChange(db: Database, io: WsServer, state: St
        * If updating the log entries failed on first attempt, notify via the global error state var instead.
        */
       if (!updatedLogsRes.successState.success) {
-        io.emit(SOCKET_EVENT_KEYS.error, "Unable to update error logs");
+        io.emit(SOCKET_EVENT_KEYS.error, `Failed to update logs with recent error from: '${res.callingFunction}'`);
         return
       }
 
@@ -170,7 +170,7 @@ export async function handleAddToQueue(db: Database, io: WsServer, state: StateT
      * If updating the log entries failed on first attempt, notify via the global error state var instead.
      */
     if (!updatedLogsRes.successState.success) {
-      io.emit(SOCKET_EVENT_KEYS.error, "Unable to update error logs");
+      io.emit(SOCKET_EVENT_KEYS.error, `Failed to update logs with recent error from: '${updatedQueueRes.successState.callingFunction}'`);
       return
     }
 
@@ -207,7 +207,7 @@ export async function handleDeleteFromQueue(db: Database, io: WsServer, state: S
      * If updating the log entries failed on first attempt, notify via the global error state var instead.
      */
     if (!updatedLogsRes.successState.success) {
-      io.emit(SOCKET_EVENT_KEYS.error, "Unable to update error logs");
+      io.emit(SOCKET_EVENT_KEYS.error, `Failed to update logs with recent error from: '${updatedQueueRes.successState.callingFunction}'`);
       return
     }
 
@@ -224,7 +224,7 @@ export async function handleDeleteFromQueue(db: Database, io: WsServer, state: S
 }
 
 
-/** Handles the auto playing of queue videos. */
+/** Handles the retrieval of the next available queue item, and plays it. */
 export async function handlePlayNextFromQueue(db: Database, io: WsServer, state: StateType, req: BaseRequest, resCallback: (ack: WSAcknowledgement) => void) {
   const nextQueueItemReturn = await getNextQueueItem(db);
   if (!nextQueueItemReturn.successState.success) {
@@ -244,7 +244,7 @@ export async function handlePlayNextFromQueue(db: Database, io: WsServer, state:
      * If updating the log entries failed on first attempt, notify via the global error state var instead.
      */
     if (!updatedLogsRes.successState.success) {
-      io.emit(SOCKET_EVENT_KEYS.error, "Unable to update error logs");
+      io.emit(SOCKET_EVENT_KEYS.error, `Failed to update logs with recent error from: '${nextQueueItemReturn.successState.callingFunction}'`);
       return
     }
 
@@ -266,7 +266,7 @@ export async function handlePlayNextFromQueue(db: Database, io: WsServer, state:
   }
 
   console.log("Socket:", "Got next video in queue.")
-  await handlePlayNextVideo(db, io, state, { video: nextVideo }, resCallback);
+  await handlePlayVideo(db, io, state, { video: nextVideo }, resCallback);
 }
 
 
@@ -290,7 +290,7 @@ export async function handleClearQueue(db: Database, io: WsServer, state: StateT
      * If updating the log entries failed on first attempt, notify via the global error state var instead.
      */
     if (!updatedLogsRes.successState.success) {
-      io.emit(SOCKET_EVENT_KEYS.error, "Unable to update error logs");
+      io.emit(SOCKET_EVENT_KEYS.error, `Failed to update logs with recent error from: '${res.callingFunction}'`);
       return
     }
 
@@ -340,20 +340,43 @@ function startCheckForEndOfVideo(io: WsServer, db: Database, state: StateType) {
       const { playerState, checkStatus } = await checkForEndOfVideo(state.playerFrame);
 
 
-      // Handle any player errors, or silently ignore false cases
+      // Handle any player errors
       if (checkStatus !== "success" || !playerState) {
-        if (checkStatus !== "error-ignored") {
+
+        // Silently ignore false cases and log them
+        if (checkStatus === "detached-frame-error") {
+          const newLogEntry: NewEntryLog = {
+            type: "info",
+            stackTrace: "Detached frame error encountered - this can safely be ignored.",
+            callingFunction: "checkForEndOfVideo"
+          }
+          const updatedLogsRes = await updateLogEntries(db, newLogEntry);
+
+          /* 
+           * If updating the log entries failed on first attempt, notify via the global error state var instead.
+           */
+          if (!updatedLogsRes.successState.success) {
+            io.emit(SOCKET_EVENT_KEYS.error, "Failed to update logs with recent info from: 'checkForEndOfVideo'");
+            return
+          }
+
+          state.logs = updatedLogsRes.logs;
+          io.emit(SOCKET_EVENT_KEYS.logs, state.logs);
+          console.warn("GOT HERE")
+          return;
+
+        } else if (checkStatus === "error") {
           /*
            * If an error occured, reset, update state and attempt to load the next video (if any) from the queue.
            */
-          io.emit(SOCKET_EVENT_KEYS.error, "An error occured with the player.");
+          io.emit(SOCKET_EVENT_KEYS.error, "An error occured with the player while checking its current progress");
           clearState(io, state);
 
           // Attempt to load the next video.
           const { nextVideo, updatedQueue, successState } = await getNextQueueItem(db);
           if (!successState.success) {
             state.isIntervalRunning = false;
-            io.emit(SOCKET_EVENT_KEYS.error, "Something went wrong getting the next video.");
+            io.emit(SOCKET_EVENT_KEYS.error, "Something went wrong getting the next video");
 
             const newLogEntry: NewEntryLog = {
               type: "error",
@@ -366,7 +389,7 @@ function startCheckForEndOfVideo(io: WsServer, db: Database, state: StateType) {
              * If updating the log entries failed on first attempt, notify via the global error state var instead.
              */
             if (!updatedLogsRes.successState.success) {
-              io.emit(SOCKET_EVENT_KEYS.error, "Unable to update error logs");
+              io.emit(SOCKET_EVENT_KEYS.error, "Failed to update logs with recent error from: 'checkForEndOfVideo'");
               return
             }
 
@@ -379,10 +402,12 @@ function startCheckForEndOfVideo(io: WsServer, db: Database, state: StateType) {
           io.emit(SOCKET_EVENT_KEYS.queue, state.queue);
 
           if (nextVideo) {
-            await handlePlayNextVideo(db, io, state, { video: nextVideo });
+            await handlePlayVideo(db, io, state, { video: nextVideo });
           }
-        }
+        } // Requires testing
+        console.warn("SHOULD NOT BE HERE??")
 
+        // No error occured, so check if the video has ended.
       } else if (playerState.hasEnded) {
         /*
          * If the video has ended, reset, update state and attempt to load the next video (if any) from the queue.
@@ -405,7 +430,7 @@ function startCheckForEndOfVideo(io: WsServer, db: Database, state: StateType) {
            * If updating the log entries failed on first attempt, notify via the global error state var instead.
            */
           if (!updatedLogsRes.successState.success) {
-            io.emit(SOCKET_EVENT_KEYS.error, "Unable to update error logs");
+            io.emit(SOCKET_EVENT_KEYS.error, "Failed to update logs with recent error from: 'checkForEndOfVideo'");
             return
           }
 
@@ -418,7 +443,7 @@ function startCheckForEndOfVideo(io: WsServer, db: Database, state: StateType) {
         io.emit(SOCKET_EVENT_KEYS.queue, state.queue);
 
         if (nextVideo) {
-          await handlePlayNextVideo(db, io, state, { video: nextVideo });
+          await handlePlayVideo(db, io, state, { video: nextVideo });
         }
 
       } else if (checkStatus === "success" && playerState) {
@@ -435,7 +460,7 @@ function startCheckForEndOfVideo(io: WsServer, db: Database, state: StateType) {
      * Worst case scenario catch. If this goes off, something seriously bad happened for it to not be able play the next queue item and continue running.
      */
     console.error("startCheckForEndOfVideo:", "An error occured while checking the player's current time.\n", err);
-    io.emit(SOCKET_EVENT_KEYS.error, "An error occured while checking the player's current time.");
+    io.emit(SOCKET_EVENT_KEYS.error, "An error occured while checking the player's current progress.");
     state.isIntervalRunning = false;
     clearState(io, state);
 
@@ -450,7 +475,7 @@ function startCheckForEndOfVideo(io: WsServer, db: Database, state: StateType) {
        * If updating the log entries failed on first attempt, notify via the global error state var instead.
        */
       if (!updatedLogsRes.successState.success) {
-        io.emit(SOCKET_EVENT_KEYS.error, "Unable to update error logs");
+        io.emit(SOCKET_EVENT_KEYS.error, "Failed to update logs with recent error from: 'startCheckForEndOfVideo'");
         return
       }
 
@@ -462,7 +487,7 @@ function startCheckForEndOfVideo(io: WsServer, db: Database, state: StateType) {
 
 
 /** Handles the playing of videos. */
-export async function handlePlayNextVideo(db: Database, io: WsServer, state: StateType, req: VideoRequest, resCallback?: (ack: WSAcknowledgement) => void) {
+export async function handlePlayVideo(db: Database, io: WsServer, state: StateType, req: VideoRequest, resCallback?: (ack: WSAcknowledgement) => void) {
   if (state.checkVideoInterval) clearInterval(state.checkVideoInterval);
 
   const res = await playVideo(io, req.video.videoId, state);
@@ -488,7 +513,7 @@ export async function handlePlayNextVideo(db: Database, io: WsServer, state: Sta
       * If updating the log entries failed on first attempt, notify via the global error state var instead.
       */
       if (!updatedLogsRes.successState.success) {
-        io.emit(SOCKET_EVENT_KEYS.error, "Unable to update error logs");
+        io.emit(SOCKET_EVENT_KEYS.error, `Failed to update logs with recent error from: '${res.successState.callingFunction}'`);
         return
       }
 
@@ -538,7 +563,7 @@ export async function handlePlayNextVideo(db: Database, io: WsServer, state: Sta
      * If updating the log entries failed on first attempt, notify via the global error state var instead.
      */
     if (!updatedLogsRes.successState.success) {
-      io.emit(SOCKET_EVENT_KEYS.error, "Unable to update error logs");
+      io.emit(SOCKET_EVENT_KEYS.error, `Failed to update logs with recent error from ${updatedHistory.successState.callingFunction}`);
       return
     }
 

@@ -262,7 +262,8 @@ type CheckForEndOfVideoReturn = {
     hasEnded: boolean,
     currentTime: number
   } | null;
-  checkStatus: "success" | "error" | "error-ignored";
+  /** Indicates if the check was successful or if an error occured. `detached-frame-error` can be ignored. */
+  checkStatus: "success" | "error" | "detached-frame-error";
 }
 
 /**
@@ -340,9 +341,9 @@ export async function checkForEndOfVideo(iFrame: Frame): Promise<CheckForEndOfVi
      * Detached frame errors occur when the playerFrame changes as the function attempts to interact with the old frame as it is changing.
      */
     if (errMessage.includes(detatchedFrameMessage)) {
-      console.error("CheckForEndOfVideo error:\n", "Detached frame deteched - ignoring");
+      console.error("CheckForEndOfVideo error:\n", "Detached frame error encountered - this can safely be ignored");
       return {
-        checkStatus: "error-ignored",
+        checkStatus: "detached-frame-error",
         playerState: null
       };
     }

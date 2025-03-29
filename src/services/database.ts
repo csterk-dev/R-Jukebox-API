@@ -32,6 +32,77 @@ export async function initialiseDBConnection(): Promise<Database> {
 }
 
 
+type InitialisedStateVarsReturn = {
+  history: HistoryVideo[];
+  queue: Video[];
+  logs: EntryLog[];
+}
+
+/**
+ * Initializes and retrieves essential state variables from the database, 
+ * including history, queue, and logs. 
+ * 
+ * If retrieval fails for any dataset, an error log entry is created in the database. 
+ * If all retrievals fail, an error is thrown.
+ * 
+ * @returns A promise resolving to an object containing history, queue, and logs data.
+ * @throws If all state retrievals fail, an error is thrown with stack traces.
+ */
+export async function initialiseStateVars(db: Database): Promise<InitialisedStateVarsReturn> {
+  const historyRes = await getHistoryItems(db);
+  if (!historyRes.successState.success) {
+    const getHistoryEntry: NewEntryLog = {
+      type: "error",
+      stackTrace: historyRes.successState.stackTrace,
+      callingFunction: historyRes.successState.callingFunction
+    }
+    const updatedLogsRes = await updateLogEntries(db, getHistoryEntry);
+    if (!updatedLogsRes.successState.success) console.error(`Failed to update logs with recent error from ${updatedLogsRes.successState.callingFunction}`);
+  }
+
+
+  const queueRes = await getQueueItems(db);
+  if (!queueRes.successState.success) {
+    const getQueueEntry: NewEntryLog = {
+      type: "error",
+      stackTrace: queueRes.successState.stackTrace,
+      callingFunction: queueRes.successState.callingFunction
+    }
+    const updatedLogsRes = await updateLogEntries(db, getQueueEntry);
+    if (!updatedLogsRes.successState.success) console.error(`Failed to update logs with recent error from ${updatedLogsRes.successState.callingFunction}`);
+  }
+
+
+  const logsRes = await getLogEntries(db);
+  if (!logsRes.successState.success) {
+    const getLogsEntry: NewEntryLog = {
+      type: "error",
+      stackTrace: logsRes.successState.stackTrace,
+      callingFunction: logsRes.successState.callingFunction
+    }
+    const updatedLogsRes = await updateLogEntries(db, getLogsEntry);
+    if (!updatedLogsRes.successState.success) console.error(`Failed to update logs with recent error from ${updatedLogsRes.successState.callingFunction}`);
+  }
+
+
+  if (!historyRes.successState.success && !queueRes.successState.success && !logsRes.successState.success) {
+    throw new Error(
+      `Failed to retrieve all state variables from the database. 
+      \nPlease check DB connection and try again. 
+      \n${historyRes.successState.stackTrace}
+      \n\n${queueRes.successState.stackTrace}
+      \n\n${logsRes.successState.stackTrace}`
+    );
+  }
+
+  return {
+    history: historyRes.videos,
+    queue: queueRes.videos,
+    logs: logsRes.logs
+  }
+}
+
+
 
 type HistoryReturn = {
   videos: HistoryVideo[];
@@ -308,7 +379,7 @@ type LogsReturn = {
 
 
 /**
- * Gets the all the queue videos or null if an error occured.
+ * Gets all entry logs or empty array if an error occured.
  * @returns An array of logs or empty array if an error occured.
  */
 export async function getLogEntries(db: Database): Promise<LogsReturn> {
@@ -694,15 +765,17 @@ function deleteQueueVideo(db: Database, videoId: string) {
 /**
  * Gets the last 50 (unless otherewise specified) previously saved logs. Throws an error if the operation fails.
  */
-function getLogs(db: Database, limit: number = 50) {
+function getLogs(db: Database) {
   const query = `
     SELECT * FROM logs 
-    ORDER BY dateTime DESC 
-    LIMIT ?;
+    WHERE dateTime >= DATETIME('now', '-1 year')
+    ORDER BY dateTime DESC;
   `;
+  // LIMIT ?
 
   return new Promise<EntryLog[]>((resolve, reject) => {
-    db.all(query, [limit], (err, rows) => {
+    // db.all(query, [limit], (err, rows) => {
+    db.all(query, (err, rows) => {
       if (err) return reject(err);
       resolve(rows as EntryLog[]);
     });
@@ -832,7 +905,7 @@ function createTables(db: Database) {
     CREATE TABLE IF NOT EXISTS logs (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         type TEXT CHECK(type IN ('error', 'info')),
-        callingFunction TEXT DEFAULT NULL,  -- New column
+        callingFunction TEXT DEFAULT NULL,
         stackTrace TEXT DEFAULT NULL,
         dateTime TEXT NOT NULL
     );
