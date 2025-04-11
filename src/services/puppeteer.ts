@@ -33,10 +33,8 @@ export async function initialsePuppeteerBrowser(osPlatform: NodeJS.Platform) {
 }
 
 type PlayVideoReturnType<T extends boolean> = {
-  playerElements: T extends true 
-    ? { currentPage: Page; iFrame: Frame } | null 
-    : never;
-  successState: ConditionalAcknowledgement<T>;
+  playerElements: T extends true ? { currentPage: Page; iFrame: Frame } : null
+  successState: PuppeteerActionAcknowledgement;
 };
 
 /**
@@ -257,14 +255,20 @@ export async function togglePlayingState(iFrame: Frame, isPlayingState: boolean)
   }
 }
 
-type CheckForEndOfVideoReturn = {
-  playerState: {
-    hasEnded: boolean,
-    currentTime: number
-  } | null;
-  /** Indicates if the check was successful or if an error occured. `detached-frame-error` can be ignored. */
-  checkStatus: "success" | "error" | "detached-frame-error";
-}
+type BaseError = Pick<NewEntryLog, "callingFunction" | "stackTrace">;
+type CheckForEndOfVideoReturn =
+  | {
+    status: "success";
+    playerState: {
+      hasEnded: boolean;
+      currentTime: number;
+    };
+  }
+  | {
+    status: "error" | "detached-frame-error";
+    playerState: null;
+  } & BaseError;
+
 
 /**
  * Checks if the current video playing in the YouTube iframe has ended.
@@ -283,16 +287,20 @@ export async function checkForEndOfVideo(iFrame: Frame): Promise<CheckForEndOfVi
     if (playbackErrorEl) {
       console.error("CheckForEndOfVideo:", "Playback error detected.");
       return {
-        checkStatus: "error",
-        playerState: null
+        status: "error",
+        playerState: null,
+        callingFunction: "checkForEndOfVideo",
+        stackTrace: "Playback error detected."
       };
     }
 
     if (!currentTimeEl || !durationTimeEl) {
       console.error("CheckForEndOfVideo:", "Cannot get time elements.");
       return {
-        checkStatus: "error",
-        playerState: null
+        status: "error",
+        playerState: null,
+        callingFunction: "checkForEndOfVideo",
+        stackTrace: "Cannot get time elements."
       };
     }
 
@@ -302,8 +310,10 @@ export async function checkForEndOfVideo(iFrame: Frame): Promise<CheckForEndOfVi
     if (!currentTime || !durationTime) {
       console.error("CheckForEndOfVideo:", "Cannot read video times.");
       return {
-        checkStatus: "error",
-        playerState: null
+        status: "error",
+        playerState: null,
+        callingFunction: "checkForEndOfVideo",
+        stackTrace: "Cannot read time elements."
       };
     }
 
@@ -317,7 +327,7 @@ export async function checkForEndOfVideo(iFrame: Frame): Promise<CheckForEndOfVi
     if (hasEnded) {
       console.log("CheckForEndOfVideo", "Video has ended.");
       return {
-        checkStatus: "success",
+        status: "success",
         playerState: {
           hasEnded: true,
           currentTime: 0
@@ -325,7 +335,7 @@ export async function checkForEndOfVideo(iFrame: Frame): Promise<CheckForEndOfVi
       };
     }
     return {
-      checkStatus: "success",
+      status: "success",
       playerState: {
         hasEnded: false,
         currentTime: currentTimeSec
@@ -343,15 +353,19 @@ export async function checkForEndOfVideo(iFrame: Frame): Promise<CheckForEndOfVi
     if (errMessage.includes(detatchedFrameMessage)) {
       console.error("CheckForEndOfVideo error:\n", "Detached frame error encountered - this can safely be ignored");
       return {
-        checkStatus: "detached-frame-error",
-        playerState: null
+        status: "detached-frame-error",
+        playerState: null,
+        callingFunction: "checkForEndOfVideo",
+        stackTrace: "Detached frame error encountered - this can safely be ignored."
       };
     }
 
     console.error("CheckForEndOfVideo error:\n", error);
     return {
-      checkStatus: "error",
-      playerState: null
+      status: "error",
+      playerState: null,
+      callingFunction: "checkForEndOfVideo",
+      stackTrace: error
     };
   }
 }

@@ -336,19 +336,28 @@ function startCheckForEndOfVideo(io: WsServer, db: Database, state: StateType) {
         return;
       }
 
+      /**
+       * This internal boolean for the interval logic prevents multiple overlapping intervals from being created
+       * when Puppeteer's async operations are slow to complete. Without this safeguard, a new interval could be
+       * inadvertently started every 5 seconds, even if the previous one is still running.
+       *
+       * This issue was observed when `getNextQueueItem` was triggered simultaneously in two places,
+       * causing two videos to be popped from the queue at once and resulting in the first video being lost.
+       */
       state.isIntervalRunning = true;
-      const { playerState, checkStatus } = await checkForEndOfVideo(state.playerFrame);
+      const checkForEndOfVideoRes = await checkForEndOfVideo(state.playerFrame);
 
 
       // Handle any player errors
-      if (checkStatus !== "success" || !playerState) {
+      if (checkForEndOfVideoRes.status !== "success") {
+        const { status, stackTrace, callingFunction } = checkForEndOfVideoRes;
 
-        // Silently ignore false cases and log them
-        if (checkStatus === "detached-frame-error") {
+        // Silently ignore false cases but still log them
+        if (status === "detached-frame-error") {
           const newLogEntry: NewEntryLog = {
             type: "info",
-            stackTrace: "Detached frame error encountered - this can safely be ignored.",
-            callingFunction: "checkForEndOfVideo"
+            stackTrace,
+            callingFunction
           }
           const updatedLogsRes = await updateLogEntries(db, newLogEntry);
 
@@ -362,15 +371,29 @@ function startCheckForEndOfVideo(io: WsServer, db: Database, state: StateType) {
 
           state.logs = updatedLogsRes.logs;
           io.emit(SOCKET_EVENT_KEYS.logs, state.logs);
-          console.warn("GOT HERE")
           return;
 
-        } else if (checkStatus === "error") {
+        } else if (status === "error") {
           /*
            * If an error occured, reset, update state and attempt to load the next video (if any) from the queue.
            */
           io.emit(SOCKET_EVENT_KEYS.error, "An error occured with the player while checking its current progress");
           clearState(io, state);
+
+          const newLogEntry: NewEntryLog = {
+            type: "error",
+            stackTrace: null,
+            callingFunction: "checkForEndOfVideo"
+          }
+          const guy = await updateLogEntries(db, newLogEntry);
+
+          /* 
+           * If updating the log entries failed on first attempt, notify via the global error state var instead.
+           */
+          if (!guy.successState.success) {
+            io.emit(SOCKET_EVENT_KEYS.error, "Failed to update logs with recent error from: 'checkForEndOfVideo'");
+            return
+          }
 
           // Attempt to load the next video.
           const { nextVideo, updatedQueue, successState } = await getNextQueueItem(db);
@@ -378,12 +401,12 @@ function startCheckForEndOfVideo(io: WsServer, db: Database, state: StateType) {
             state.isIntervalRunning = false;
             io.emit(SOCKET_EVENT_KEYS.error, "Something went wrong getting the next video");
 
-            const newLogEntry: NewEntryLog = {
+            const newQueueUpdateLogEntry: NewEntryLog = {
               type: "error",
               stackTrace: successState.stackTrace,
               callingFunction: successState.callingFunction
             }
-            const updatedLogsRes = await updateLogEntries(db, newLogEntry);
+            const updatedLogsRes = await updateLogEntries(db, newQueueUpdateLogEntry);
 
             /* 
              * If updating the log entries failed on first attempt, notify via the global error state var instead.
@@ -404,13 +427,11 @@ function startCheckForEndOfVideo(io: WsServer, db: Database, state: StateType) {
           if (nextVideo) {
             await handlePlayVideo(db, io, state, { video: nextVideo });
           }
-        } // Requires testing
-        console.warn("SHOULD NOT BE HERE??")
+        }
 
-        // No error occured, so check if the video has ended.
-      } else if (playerState.hasEnded) {
+      } else if (checkForEndOfVideoRes.playerState.hasEnded) {
         /*
-         * If the video has ended, reset, update state and attempt to load the next video (if any) from the queue.
+         * No error occured. Check if the video has ended, reset, update state and attempt to load the next video (if any) from the queue.
          */
         clearState(io, state);
 
@@ -446,8 +467,11 @@ function startCheckForEndOfVideo(io: WsServer, db: Database, state: StateType) {
           await handlePlayVideo(db, io, state, { video: nextVideo });
         }
 
-      } else if (checkStatus === "success" && playerState) {
-        state.currentVideoTime = playerState.currentTime;
+      } else if (checkForEndOfVideoRes.status === "success") {
+        /*
+         * Video is still playing. Update the current time and broadcast.
+         */
+        state.currentVideoTime = checkForEndOfVideoRes.playerState.currentTime;
         io.emit(SOCKET_EVENT_KEYS.currentVideoTime, state.currentVideoTime);
       }
 
