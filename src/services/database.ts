@@ -1,7 +1,5 @@
 import path from "path";
 import sqlite3, { Database } from "sqlite3";
-import { Server as WsServer } from "socket.io";
-import { SOCKET_EVENT_KEYS } from "../constants";
 import utc from "dayjs/plugin/utc";
 import timezone from "dayjs/plugin/timezone"
 import dayjs from "dayjs";
@@ -34,133 +32,409 @@ export async function initialiseDBConnection(): Promise<Database> {
 }
 
 
+type InitialisedStateVarsReturn = {
+  history: HistoryVideo[];
+  queue: Video[];
+  logs: EntryLog[];
+}
+
+/**
+ * Initializes and retrieves essential state variables from the database, 
+ * including history, queue, and logs. 
+ * 
+ * If retrieval fails for any dataset, an error log entry is created in the database. 
+ * If all retrievals fail, an error is thrown.
+ * 
+ * @returns A promise resolving to an object containing history, queue, and logs data.
+ * @throws If all state retrievals fail, an error is thrown with stack traces.
+ */
+export async function initialiseStateVars(db: Database): Promise<InitialisedStateVarsReturn> {
+  const historyRes = await getHistoryItems(db);
+  if (!historyRes.successState.success) {
+    const getHistoryEntry: NewEntryLog = {
+      type: "error",
+      stackTrace: historyRes.successState.stackTrace,
+      callingFunction: historyRes.successState.callingFunction
+    }
+    const updatedLogsRes = await updateLogEntries(db, getHistoryEntry);
+    if (!updatedLogsRes.successState.success) console.error(`Failed to update logs with recent error from ${updatedLogsRes.successState.callingFunction}`);
+  }
+
+
+  const queueRes = await getQueueItems(db);
+  if (!queueRes.successState.success) {
+    const getQueueEntry: NewEntryLog = {
+      type: "error",
+      stackTrace: queueRes.successState.stackTrace,
+      callingFunction: queueRes.successState.callingFunction
+    }
+    const updatedLogsRes = await updateLogEntries(db, getQueueEntry);
+    if (!updatedLogsRes.successState.success) console.error(`Failed to update logs with recent error from ${updatedLogsRes.successState.callingFunction}`);
+  }
+
+
+  const logsRes = await getLogEntries(db);
+  if (!logsRes.successState.success) {
+    const getLogsEntry: NewEntryLog = {
+      type: "error",
+      stackTrace: logsRes.successState.stackTrace,
+      callingFunction: logsRes.successState.callingFunction
+    }
+    const updatedLogsRes = await updateLogEntries(db, getLogsEntry);
+    if (!updatedLogsRes.successState.success) console.error(`Failed to update logs with recent error from ${updatedLogsRes.successState.callingFunction}`);
+  }
+
+
+  if (!historyRes.successState.success && !queueRes.successState.success && !logsRes.successState.success) {
+    throw new Error(
+      `Failed to retrieve all state variables from the database. 
+      \nPlease check DB connection and try again. 
+      \n${historyRes.successState.stackTrace}
+      \n\n${queueRes.successState.stackTrace}
+      \n\n${logsRes.successState.stackTrace}`
+    );
+  }
+
+  return {
+    history: historyRes.videos,
+    queue: queueRes.videos,
+    logs: logsRes.logs
+  }
+}
+
+
+
+type HistoryReturn = {
+  videos: HistoryVideo[];
+  successState: DbActionAcknowledgement;
+}
+
+
+
 /**
  * Gets all history videos.
- * @returns An array of videos or null if an error occured.
+ * @returns An array of history items or error state object if an error occured.
  */
-export async function getHistoryItems(db: Database, io?: WsServer, incomingClientId?: string): Promise<HistoryVideo[] | null> {
+export async function getHistoryItems(db: Database): Promise<HistoryReturn> {
   try {
-    return await getHistory(db);
-  } catch (err: any) {
-    console.log("GetRecentlyPlayed:", "Something went wrong getting the recently played videos.\n", err);
-    if (io && incomingClientId) {
-      io.to(incomingClientId).emit(SOCKET_EVENT_KEYS.error, "Something went wrong getting the history.");
+    const history = await getHistory(db);
+
+    return {
+      videos: history,
+      successState: { success: true }
     }
-    return null;
+
+  } catch (err: any) {
+    console.error("getHistoryItems:", "Something went wrong getting the recently played videos.\n", err);
+    //   if (io && incomingClientId) {
+    //     io.to(incomingClientId).emit(SOCKET_EVENT_KEYS.error, "Something went wrong getting the history.");
+    //   }
+    //   return null;
+    // }
+    return {
+      videos: [],
+      successState: {
+        success: false,
+        errorMessage: "Something went wrong getting the recently played videos",
+        stackTrace: err,
+        callingFunction: "getHistoryItems"
+      }
+    }
   }
 }
 
 /**
- * Adds the provided new video to the history. 
- * @returns An exit code: error == 1, OK == 0.
+ * Adds the provided new video to the history and returns the updated history.
+ * @returns The updated history or empty array if an error occured.
  */
-export async function updateHistoryItems(db: Database, io: WsServer, newVideo: Video, incomingClientId?: string, ) {
+export async function updateHistoryItems(db: Database, newVideo: Video): Promise<HistoryReturn> {
   try {
-    return await updateHistory(db, newVideo);
-  } catch (err: any) {
-    console.log("UpdateRecentlyPlayed:", "Something went wrong updating the recently played videos.\n", err);
-    if (incomingClientId) {
-      io.to(incomingClientId).emit(SOCKET_EVENT_KEYS.error, "Something went wrong updating the history.");
+    const updatedHistory = await updateHistory(db, newVideo);
+
+    return {
+      videos: updatedHistory,
+      successState: { success: true }
     }
-    return null;
+  } catch (err: any) {
+    console.error("updateHistoryItems:", "Something went wrong updating the recently played videos.\n", err);
+    // if (incomingClientId) {
+    //   io.to(incomingClientId).emit(SOCKET_EVENT_KEYS.error, "Something went wrong updating the history.");
+    // }
+    // return null;
+    return {
+      videos: [],
+      successState: {
+        success: false,
+        errorMessage: "Something went wrong updating the recently played videos",
+        stackTrace: err,
+        callingFunction: "updateHistoryItems"
+      }
+    }
   }
+}
+
+
+
+type QueueReturn = {
+  videos: Video[];
+  successState: DbActionAcknowledgement;
 }
 
 
 /**
  * Gets the all the queue videos or null if an error occured.
- * @returns An array of videos or null if an error occured.
+ * @returns An array of videos or empty array if an error occured.
  */
-export async function getQueueItems(db: Database, io?: WsServer, incomingClientId?: string) {
+export async function getQueueItems(db: Database): Promise<QueueReturn> {
   try {
-    return await getQueue(db);
-  } catch (err: any) {
-    console.log("GetRecentlyPlayed:", "Something went wrong getting the recently played videos.\n", err);
-    if (io && incomingClientId) {
-      io.to(incomingClientId).emit(SOCKET_EVENT_KEYS.error, "Something went wrong getting the history.");
+    const queue = await getQueue(db);
+
+    return {
+      videos: queue,
+      successState: { success: true }
     }
-    return null;
+
+  } catch (err: any) {
+    console.error("getQueueItems:", "Something went wrong getting the queue.\n", err);
+    // if (io && incomingClientId) {
+    //   io.to(incomingClientId).emit(SOCKET_EVENT_KEYS.error, "Something went wrong getting the queue.");
+    // }
+    // return null;
+    return {
+      videos: [],
+      successState: {
+        success: false,
+        errorMessage: "Something went wrong getting the queue",
+        stackTrace: err,
+        callingFunction: "getQueueItems"
+      }
+    }
   }
+}
+
+
+type NextQueueItemReturn = {
+  nextVideo: Video | null;
+  updatedQueue: Video[];
+  successState: DbActionAcknowledgement;
 }
 
 
 /**
  * 'Pops' the next item from the queue and returns it.
- * @returns An array containing the next video and the queue, or null if an error occured.
+ * @returns An object containing the next video and the queue, or null and an empty array if an error occured.
  */
-export async function getNextQueueItem(db: Database, io: WsServer, incomingClientId?: string) {
+export async function getNextQueueItem(db: Database): Promise<NextQueueItemReturn> {
   try {
-    return await getAndRemoveNextVideo(db);
-  } catch (err: any) {
-    console.log("GetNextQueueItem:", "Something went wrong getting the next video.\n", err);
-    if (incomingClientId) {
-      io.to(incomingClientId).emit(SOCKET_EVENT_KEYS.error, "Something went wrong getting the next video.");
-    } else {
-      io.emit(SOCKET_EVENT_KEYS.error, "Something went wrong getting the next video.");
+    const [nextVideo, updatedQueue] = await getAndRemoveNextVideo(db);
+
+    return {
+      nextVideo,
+      updatedQueue,
+      successState: { success: true }
     }
-    return null;
+
+  } catch (err: any) {
+    console.error("getNextQueueItem:", "Something went wrong getting the next video.\n", err);
+    // if (incomingClientId) {
+    //   io.to(incomingClientId).emit(SOCKET_EVENT_KEYS.error, "Something went wrong getting the next video.");
+    // } else {
+    //   io.emit(SOCKET_EVENT_KEYS.error, "Something went wrong getting the next video.");
+    // }
+    // return null;
+    return {
+      nextVideo: null,
+      updatedQueue: [],
+      successState: {
+        success: false,
+        errorMessage: "Something went wrong getting the video from the queue",
+        stackTrace: err,
+        callingFunction: "getNextQueueItem"
+      }
+    }
   }
+}
+
+
+
+type UpdateQueueReturnType = {
+  videos: Video[];
+  successState: DbActionAcknowledgement;
 }
 
 
 /**
  * Deletes the specified video from the queue.
- * @returns The next video or null if an error occured.
+ * @returns An array of queue videos or empty array if an error occured.
  */
-export async function deleteQueueItem(db: Database, io: WsServer, incomingClientId: string, videoId: Video["videoId"]) {
+export async function deleteQueueItem(db: Database, videoId: Video["videoId"]): Promise<UpdateQueueReturnType> {
   try {
-    return await deleteQueueVideo(db, videoId);
+    const updatedQueue = await deleteQueueVideo(db, videoId);
+    return {
+      videos: updatedQueue,
+      successState: { success: true }
+    }
+
   } catch (err: any) {
-    console.log("DeleteQueueItem:", "Something went wrong removing the video from the queue.\n", err);
-    io.to(incomingClientId).emit(SOCKET_EVENT_KEYS.error, "Something went wrong removing the video from the queue.");
-    return null;
+    console.error("deleteQueueItem:", "Something went wrong removing the video from the queue.\n", err);
+    // io.to(incomingClientId).emit(SOCKET_EVENT_KEYS.error, "Something went wrong removing the video from the queue.");
+    // return null;
+    return {
+      videos: [],
+      successState: {
+        success: false,
+        errorMessage: "Something went wrong removing the video from the queue",
+        stackTrace: err,
+        callingFunction: "deleteQueueItem"
+      }
+    }
   }
 }
 
 
 /**
  * Clears the queue.
- * @returns An exit code: error == 1, OK == 0.
+ * @returns Returns `success: true` if successful, otherwise `success: false` and error message/stack trace.
  */
-export async function clearQueue(db: Database, io: WsServer, incomingClientId: string) {
+export async function clearQueue(db: Database): Promise<DbActionAcknowledgement> {
   try {
     await truncateQueue(db);
-    return 0;
+    return { success: true }
   } catch (err: any) {
-    console.log("ClearQueue:", "Something went wrong clearing the queue.\n", err);
-    io.to(incomingClientId).emit(SOCKET_EVENT_KEYS.error, "Something went wrong clearing the queue.");
-    return 1;
+    console.error("clearQueue:", "Something went wrong clearing the queue.\n", err);
+    // io.to(incomingClientId).emit(SOCKET_EVENT_KEYS.error, "Something went wrong clearing the queue.");
+    // return 1;
+    return {
+      success: false,
+      errorMessage: "Something went wrong clearing the queue",
+      stackTrace: err,
+      callingFunction: "clearQueue"
+    }
   }
 }
 
 
+
 /**
  * Added the provided video from the bottom of the queue.
- * @returns An array of videos or null if an error occured.
+ * @returns An array of queue videos or empty array if an error occured.
 */
-export async function addToBottomOfQueue(db: Database, newVideo: Video) {
+export async function addToBottomOfQueue(db: Database, newVideo: Video): Promise<UpdateQueueReturnType> {
   try {
-    return await updateToBottom(db, newVideo);
+    const updatedQueue = await insertToBottom(db, newVideo);
+    return {
+      videos: updatedQueue,
+      successState: { success: true }
+    }
   } catch (err: any) {
-    console.log("addToBottomOfQueue:", "Something went wrong adding the video to the bottom of the queue.\n", err);
-    return null;
+    console.error("addToBottomOfQueue:", "Something went wrong adding the video to the bottom of the queue.\n", err);
+    // io.to(incomingClientId).emit(SOCKET_EVENT_KEYS.error, "Something went wrong adding the video to the bottom of the queue.");
+    // return null;
+    return {
+      videos: [],
+      successState: {
+        success: false,
+        errorMessage: "Something went wrong adding the video to the bottom of the queue",
+        stackTrace: err,
+        callingFunction: "addToBottomOfQueue"
+      }
+    }
   }
 }
 
 
 /**
  * Added the provided video from the top of the queue.
- * @returns An array of videos or null if an error occured.
+ * @returns An array of queue videos or empty array if an error occured.
  */
-export async function addToTopOfQueue(db: Database, newVideo: Video) {
+export async function addToTopOfQueue(db: Database, newVideo: Video): Promise<UpdateQueueReturnType> {
   try {
-    return await updateToTop(db, newVideo);
+    const updatedQueue = await insertToTop(db, newVideo);
+    return {
+      videos: updatedQueue,
+      successState: { success: true }
+    }
   } catch (err: any) {
-    console.log("addToTopOfQueue:", "Something went wrong adding the video to the top of the queue.\n", err);
-    return null;
+    console.error("addToTopOfQueue:", "Something went wrong adding the video to the top of the queue.\n", err);
+    // io.to(incomingClientId).emit(SOCKET_EVENT_KEYS.error, "Something went wrong adding the video to the top of the queue.");
+    // return null;
+    return {
+      videos: [],
+      successState: {
+        success: false,
+        errorMessage: "Something went wrong adding the video to the top of the queue",
+        stackTrace: err,
+        callingFunction: "addToTopOfQueue"
+      }
+    }
   }
 }
 
+
+
+type LogsReturn = {
+  logs: EntryLog[];
+  successState: DbActionAcknowledgement;
+}
+
+
+/**
+ * Gets all entry logs or empty array if an error occured.
+ * @returns An array of logs or empty array if an error occured.
+ */
+export async function getLogEntries(db: Database): Promise<LogsReturn> {
+  try {
+    const logs = await getLogs(db);
+
+    return {
+      logs,
+      successState: { success: true }
+    }
+
+  } catch (err: any) {
+    console.error("GetQueueItems:", "Something went wrong getting the logs.\n", err);
+    // if (io && incomingClientId) {
+    //   io.to(incomingClientId).emit(SOCKET_EVENT_KEYS.error, "Something went wrong getting the queue.");
+    // }
+    // return null;
+    return {
+      logs: [],
+      successState: {
+        success: false,
+        errorMessage: "Something went wrong getting the logs",
+        stackTrace: err,
+        callingFunction: "getLogEntries"
+      }
+    }
+  }
+}
+
+
+/**
+ * Adds the a new log entry.
+ * @returns An array of logs or empty array if an error occured.
+ */
+export async function updateLogEntries(db: Database, newLog: NewEntryLog): Promise<LogsReturn> {
+  try {
+    const updatedLogEntries = await insertLog(db, newLog);
+
+    return {
+      logs: updatedLogEntries,
+      successState: { success: true }
+    }
+  } catch (err: any) {
+    console.error("updateLogEntries:", "Something went wrong updating the log entries.\n", err);
+    return {
+      logs: [],
+      successState: {
+        success: false,
+        errorMessage: "Something went wrong updating the log entries",
+        stackTrace: err,
+        callingFunction: "updateLogEntries"
+      }
+    }
+  }
+}
 
 
 /**
@@ -219,7 +493,7 @@ function updateHistory(db: Database, video: Video) {
 
         const date30DaysAgo = dayjs().subtract(30, "days");
         const getQuery = `SELECT * from history WHERE playedAt >= '${date30DaysAgo.format()}' ORDER BY playedAt DESC`;
-      
+
         db.all<HistoryVideo>(getQuery, (getErr, rows) => {
           if (getErr) {
             return reject(getErr);
@@ -227,7 +501,7 @@ function updateHistory(db: Database, video: Video) {
 
           const parsedRows = rows.map(v => {
             const thumbnails = JSON.parse(v.thumbnails as unknown as string);
-    
+
             return {
               channelId: v.channelId,
               channelTitle: v.channelTitle,
@@ -282,7 +556,7 @@ function getQueue(db: Database) {
  * Inserts the provided video, and if it already exists in the table, updates its position to be the first item, otherwise inserts into the table at the first position.
  * @returns The updated queue array.
  */
-function updateToTop(db: Database, video: Video): Promise<Video[]> {
+function insertToTop(db: Database, video: Video): Promise<Video[]> {
   const query = `
     INSERT INTO queue (channelId, channelTitle, duration, publishedAt, thumbnails, title, videoId, position) 
     VALUES (?, ?, ?, ?, ?, ?, ?, 
@@ -302,7 +576,7 @@ function updateToTop(db: Database, video: Video): Promise<Video[]> {
           return reject(updateErr);
         }
 
-        console.log("UpdateToTop:", "Updated queue with video", video.videoId);
+        console.log("insertToTop:", "Updated queue with video", video.videoId);
 
         // After the insert/update, fetch the entire queue ordered by position
         db.all<Video>("SELECT * FROM queue ORDER BY position ASC", (getErr, rows) => {
@@ -335,7 +609,7 @@ function updateToTop(db: Database, video: Video): Promise<Video[]> {
  * Inserts the provided video, and if it already exists in the table, updates its position to be the last item, otherwise inserts into the table at the last position.
  * @returns The updated queue array.
  */
-function updateToBottom(db: Database, video: Video) {
+function insertToBottom(db: Database, video: Video) {
   const query = `
     INSERT INTO queue (channelId, channelTitle, duration, publishedAt, thumbnails, title, videoId, position) 
     VALUES (?, ?, ?, ?, ?, ?, ?, 
@@ -353,7 +627,7 @@ function updateToBottom(db: Database, video: Video) {
       (updateErr) => {
         if (updateErr) reject(updateErr);
 
-        console.log("UpdateToBottom:", "Updated queue with video", video.videoId);
+        console.log("insertToBottom:", "Updated queue with video", video.videoId);
 
         // After the insert/update, fetch the entire queue ordered by position
         db.all<Video>("SELECT * FROM queue ORDER BY position ASC", (getErr, rows) => {
@@ -385,20 +659,20 @@ function updateToBottom(db: Database, video: Video) {
 /**
  * Returns the removed item from the queue, as well as the updated queue.
  */
-function getAndRemoveNextVideo(db: Database): Promise<[Video | undefined, Video[]]> {
+function getAndRemoveNextVideo(db: Database): Promise<[Video | null, Video[]]> {
   const query = `
     SELECT * FROM queue
     WHERE position = (SELECT MIN(position) FROM queue)
     LIMIT 1
   `;
 
-  return new Promise<[Video | undefined, Video[]]>((resolve, reject) => {
+  return new Promise<[Video | null, Video[]]>((resolve, reject) => {
     db.get<Video>(query, (getErr, nextVideo) => {
       if (getErr) return reject(getErr);
 
       if (!nextVideo) {
         // No video to return (queue is empty)
-        return resolve([undefined, []]);
+        return resolve([null, []]);
       }
 
       const parsedNextVideo: Video = {
@@ -454,7 +728,7 @@ function deleteQueueVideo(db: Database, videoId: string) {
         DELETE FROM queue
         WHERE videoId = ?
       `;
-      
+
   return new Promise<Video[]>((resolve, reject) => {
     db.run(query, [videoId], (deleteErr) => {
       if (deleteErr) return reject(deleteErr);
@@ -482,6 +756,69 @@ function deleteQueueVideo(db: Database, videoId: string) {
         });
 
         resolve(parsedRows);
+      });
+    });
+  });
+}
+
+
+/**
+ * Gets the last 50 (unless otherewise specified) previously saved logs. Throws an error if the operation fails.
+ */
+function getLogs(db: Database) {
+  const query = `
+    SELECT * FROM logs 
+    WHERE dateTime >= DATETIME('now', '-1 year')
+    ORDER BY dateTime DESC;
+  `;
+  // LIMIT ?
+
+  return new Promise<EntryLog[]>((resolve, reject) => {
+    // db.all(query, [limit], (err, rows) => {
+    db.all(query, (err, rows) => {
+      if (err) return reject(err);
+      resolve(rows as EntryLog[]);
+    });
+  });
+}
+
+
+/**
+ * Inserts the provided log and its optional metada and returns the updated log history.
+ * @returns The updated logs.
+ */
+function insertLog(db: Database, log: NewEntryLog, limit: number = 50) {
+  const query = `
+    INSERT INTO logs (type, callingFunction, stackTrace, dateTime)
+    VALUES (?, ?, ?, ?);
+  `;
+
+  const getLogsQuery = `
+    SELECT * FROM logs 
+    ORDER BY dateTime DESC 
+    LIMIT ?;
+  `;
+
+  const stackTraceString = !log.stackTrace ? null :
+    typeof log.stackTrace === "string" ? log.stackTrace :
+      JSON.stringify(log.stackTrace, null, 2);
+
+  return new Promise<EntryLog[]>((resolve, reject) => {
+    db.run(query, [log.type, log.callingFunction, stackTraceString, dayjs().format()], (err) => {
+      if (err) {
+        console.error("InsertLog Error:", err.message);
+        return reject(err);
+      }
+
+      console.log("InsertLog:", `Logged ${log.type} at`, dayjs().format());
+
+      // Fetch updated logs after insert
+      db.all(getLogsQuery, [limit], (getErr, rows) => {
+        if (getErr) {
+          console.error("GetLogs Error:", getErr.message);
+          return reject(getErr);
+        }
+        resolve(rows as EntryLog[]);
       });
     });
   });
@@ -564,12 +901,20 @@ function createTables(db: Database) {
         CONSTRAINT position_unique UNIQUE (position),
         CONSTRAINT video_id_unique UNIQUE (videoId)
     );
+
+    CREATE TABLE IF NOT EXISTS logs (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        type TEXT CHECK(type IN ('error', 'info')),
+        callingFunction TEXT DEFAULT NULL,
+        stackTrace TEXT DEFAULT NULL,
+        dateTime TEXT NOT NULL
+    );
     `,
     (err) => {
       if (err) {
-        console.log("CreateTables:", err.message);
+        console.error("CreateTables:", err.message);
       } else {
-        console.log("CreateTables:", "Tables \"history\" and \"queue\" are ready.");
+        console.log("CreateTables:", "Tables \"history\", \"queue\", and \"logs\" are ready.");
       }
     }
   );

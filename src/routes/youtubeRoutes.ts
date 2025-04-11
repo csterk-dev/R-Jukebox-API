@@ -1,5 +1,5 @@
 /* eslint-disable require-await */
-import { handleSearchVideos } from "../controllers/youtubeHandler";
+import { handleSearchVideos } from "../controllers/youtube";
 import express, { Request, Response } from "express";
 
 // Simple middleware for handling exceptions inside of async express routes and passing them to your express error handlers.
