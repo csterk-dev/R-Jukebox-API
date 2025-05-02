@@ -144,7 +144,7 @@ export async function playVideo(io: WsServer, videoId: string, state: StateType)
       io.emit(SOCKET_EVENT_KEYS.currentVideoTime, state.currentVideoTime);
 
       if (htmlJsonButton.includes(PLAY_TOOLTIP_SELECTOR)) {
-        playButton.click();
+        await playButton.click(); // if a video is unlisted than this can fail if the selector was present prior to the Youtube block overlay appearing
         console.log("PlayVideo:", "Video started.");
         return {
           playerElements: {
@@ -233,11 +233,11 @@ export async function togglePlayingState(iFrame: Frame, isPlayingState: boolean)
 
     if (htmlJsonButton.includes(PAUSE_TOOLTIP_SELECTOR) && !isPlayingState) {
 
-      playButton.click();
+      await playButton.click()
       console.log("ToggleVideoPlayingState:", "Video paused.");
 
     } else if (htmlJsonButton.includes(PLAY_TOOLTIP_SELECTOR) && isPlayingState) {
-      playButton.click();
+      await playButton.click();
       console.log("ToggleVideoPlayingState:", "Video played.");
     }
     return { success: true }
@@ -281,9 +281,6 @@ export async function checkForEndOfVideo(iFrame: Frame): Promise<CheckForEndOfVi
       timeout: PLAYER_CHECK_VIDEO_INTERVAL
     }).catch(() => null);
 
-    const currentTimeEl = await iFrame.waitForSelector(TIME_CURRENT_SELECTOR, { timeout: PLAYER_CHECK_VIDEO_INTERVAL }).catch(() => null);
-    const durationTimeEl = await iFrame.waitForSelector(TIME_DURATION_SELECTOR, { timeout: PLAYER_CHECK_VIDEO_INTERVAL }).catch(() => null);
-
     if (playbackErrorEl) {
       console.error("CheckForEndOfVideo:", "Playback error detected.");
       return {
@@ -293,6 +290,9 @@ export async function checkForEndOfVideo(iFrame: Frame): Promise<CheckForEndOfVi
         stackTrace: "Playback error detected."
       };
     }
+
+    const currentTimeEl = await iFrame.waitForSelector(TIME_CURRENT_SELECTOR, { timeout: PLAYER_CHECK_VIDEO_INTERVAL }).catch(() => null);
+    const durationTimeEl = await iFrame.waitForSelector(TIME_DURATION_SELECTOR, { timeout: PLAYER_CHECK_VIDEO_INTERVAL }).catch(() => null);
 
     if (!currentTimeEl || !durationTimeEl) {
       console.error("CheckForEndOfVideo:", "Cannot get time elements.");
