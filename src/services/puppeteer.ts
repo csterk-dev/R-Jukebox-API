@@ -59,12 +59,10 @@ export async function playVideo(io: WsServer, videoId: string, state: StateType)
   state.isLoading = true;
   io.emit(SOCKET_EVENT_KEYS.isLoading, state.isLoading);
 
-  let currentPage: Page;
-
-  /*
-   * Clear any previous player pages ahead of starting the next video.
-   */
   try {
+    /*
+     * Close any previous player pages
+     */
     const pages = await state.browser.pages();
     if (pages.length > 0) {
       await Promise.all(
@@ -80,8 +78,106 @@ export async function playVideo(io: WsServer, videoId: string, state: StateType)
 
     // Open a new tab and navigate to the player
     const url = `${PLAYER_URL}/${videoId}`;
-    currentPage = await state.browser.newPage();
+    const currentPage = await state.browser.newPage();
     await currentPage.goto(url);
+
+
+    try {
+      // Get the player iframe so we can interact with it
+      const iframeElementHandle = await currentPage.$(IFRAME_SELECTOR);
+      if (!iframeElementHandle) {
+        console.error("PlayVideo:", "Iframe not ready.");
+        // io.emit(SOCKET_EVENT_KEYS.error, "Iframe not ready.");
+        // return null;
+        return {
+          playerElements: null,
+          successState: {
+            success: false,
+            errorMessage: "Page Iframe not ready.",
+            stackTrace: "Page Iframe not ready.",
+            callingFunction: "playVideo"
+          }
+        }
+      }
+
+      const iFrame = await iframeElementHandle.contentFrame();
+
+      // Attempt to find the selector for 10seconds
+      const playButton = await iFrame.waitForSelector(PLAY_BUTTON_SELECTOR, {
+        visible: true,
+        timeout: 10000
+      }).catch(() => null);
+
+
+      // If the play button returns null, then the video is unavailable (delisted, unavailable in this region or an error occured loading in the iframe).
+      if (!playButton) {
+        console.error("PlayVideo:", "Video unavailable in this region.");
+        // io.emit(SOCKET_EVENT_KEYS.error, "Video unavailable.");
+        // return null;
+        return {
+          playerElements: null,
+          successState: {
+            success: false,
+            errorMessage: "Video unavailable in this region",
+            stackTrace: "Video unavailable in this region",
+            callingFunction: "playVideo"
+          }
+        }
+      }
+
+      /*
+       * By default the video should auto start.
+       * But in the cases where it doesn't, we'll determine its state and attempt start it if required.
+       */
+      const outerHTML = await playButton.getProperty("outerHTML");
+      const htmlJsonButton = await outerHTML.jsonValue();
+
+      // Ensure the player has the correct volume
+      await playButton.hover();
+
+      const volExitCode = await setPlayerVolume(currentPage, iFrame, state.playerVolume);
+      if (volExitCode === 1) {
+        console.error(`Unable to set initial player volume to: ${state.playerVolume}%.`)
+      }
+
+      state.currentVideoTime = 0;
+      io.emit(SOCKET_EVENT_KEYS.currentVideoTime, state.currentVideoTime);
+
+      if (htmlJsonButton.includes(PLAY_TOOLTIP_SELECTOR)) {
+        await playButton.click(); // if a video is unlisted than this can fail if the selector was present prior to the Youtube block overlay appearing
+        console.log("PlayVideo:", "Video started.");
+        return {
+          playerElements: {
+            currentPage,
+            iFrame
+          },
+          successState: { success: true }
+        }
+      }
+
+      console.log("PlayVideo:", "Video already playing.");
+      return {
+        playerElements: {
+          currentPage,
+          iFrame
+        },
+        successState: { success: true }
+      }
+
+    } catch (err: any) {
+      console.error("PlayVideo:", "Something went wrong finding the youtube video.\n", err);
+      // io.emit(SOCKET_EVENT_KEYS.error, "Something went wrong finding the youtube video.");
+      // return null;
+      return {
+        playerElements: null,
+        successState: {
+          success: false,
+          errorMessage: "Something went wrong finding the Youtube video.",
+          stackTrace: err,
+          callingFunction: "playVideo"
+        }
+      }
+    }
 
   } catch (err: any) {
     console.error("PlayVideo:", "An error occured accessing the browser.\n", err);
@@ -92,109 +188,6 @@ export async function playVideo(io: WsServer, videoId: string, state: StateType)
       successState: {
         success: false,
         errorMessage: "An error occured accessing the browser",
-        stackTrace: err,
-        callingFunction: "playVideo"
-      }
-    }
-  } finally {
-    state.isLoading = false;
-    io.emit(SOCKET_EVENT_KEYS.isLoading, state.isLoading);
-  }
-
-  /*
-   * Attempt to start the next video on the current page
-   */
-  try {
-    // Get the player iframe so we can interact with it
-    const iframeElementHandle = await currentPage.$(IFRAME_SELECTOR);
-    if (!iframeElementHandle) {
-      console.error("PlayVideo:", "Iframe not ready.");
-      // io.emit(SOCKET_EVENT_KEYS.error, "Iframe not ready.");
-      // return null;
-      return {
-        playerElements: null,
-        successState: {
-          success: false,
-          errorMessage: "Page Iframe not ready.",
-          stackTrace: "Page Iframe not ready.",
-          callingFunction: "playVideo"
-        }
-      }
-    }
-
-    const iFrame = await iframeElementHandle.contentFrame();
-
-    // Attempt to find the selector for 10seconds
-    const playButton = await iFrame.waitForSelector(PLAY_BUTTON_SELECTOR, {
-      visible: true,
-      timeout: 10000
-    }).catch(() => null);
-
-
-    // If the play button returns null, then the video is unavailable (delisted, unavailable in this region or an error occured loading in the iframe).
-    if (!playButton) {
-      console.error("PlayVideo:", "Video unavailable in this region.");
-      // io.emit(SOCKET_EVENT_KEYS.error, "Video unavailable.");
-      // return null;
-      return {
-        playerElements: null,
-        successState: {
-          success: false,
-          errorMessage: "Video unavailable in this region",
-          stackTrace: "Video unavailable in this region",
-          callingFunction: "playVideo"
-        }
-      }
-    }
-
-    /*
-     * By default the video should auto start.
-     * But in the cases where it doesn't, we'll determine its state and attempt start it if required.
-     */
-    const outerHTML = await playButton.getProperty("outerHTML");
-    const htmlJsonButton = await outerHTML.jsonValue();
-
-    // Ensure the player has the correct volume
-    await playButton.hover();
-
-    const volExitCode = await setPlayerVolume(currentPage, iFrame, state.playerVolume);
-    if (volExitCode === 1) {
-      console.error(`Unable to set initial player volume to: ${state.playerVolume}%.`)
-    }
-
-    state.currentVideoTime = 0;
-    io.emit(SOCKET_EVENT_KEYS.currentVideoTime, state.currentVideoTime);
-
-    if (htmlJsonButton.includes(PLAY_TOOLTIP_SELECTOR)) {
-      await playButton.click(); // if a video is unlisted than this can fail if the selector was present prior to the Youtube block overlay appearing
-      console.log("PlayVideo:", "Video started.");
-      return {
-        playerElements: {
-          currentPage,
-          iFrame
-        },
-        successState: { success: true }
-      }
-    }
-
-    console.log("PlayVideo:", "Video already playing.");
-    return {
-      playerElements: {
-        currentPage,
-        iFrame
-      },
-      successState: { success: true }
-    }
-
-  } catch (err: any) {
-    console.error("PlayVideo:", "Something went wrong finding the youtube video.\n", err);
-    // io.emit(SOCKET_EVENT_KEYS.error, "Something went wrong finding the youtube video.");
-    // return null;
-    return {
-      playerElements: null,
-      successState: {
-        success: false,
-        errorMessage: "Something went wrong finding the Youtube video.",
         stackTrace: err,
         callingFunction: "playVideo"
       }
