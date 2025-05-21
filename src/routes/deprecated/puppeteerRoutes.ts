@@ -1,6 +1,6 @@
 /* eslint-disable require-await */
 import express, { Express, Request, Response } from "express";
-import { HandlePauseVideo, HandlePlayVideo } from "../../controllers/depreciated/puppeteerHandlers";
+import { HandlePauseVideo, HandlePlayVideo } from "../../handlers/depreciated/puppeteerHandlers";
 import { initialsePuppeteerBrowser } from "../../services/puppeteer";
 
 // Simple middleware for handling exceptions inside of async express routes and passing them to your express error handlers.

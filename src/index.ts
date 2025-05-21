@@ -4,8 +4,8 @@ import { platform } from "os";
 import path from "path";
 import BodyParser from "body-parser";
 import { Browser, Frame, Page } from "puppeteer";
-import { youtubeRouter } from "./routes/youtubeRoutes";
-import { onSocketConnection } from "./controllers/websocket";
+import { youtubeRouter } from "./routes/youtube/router";
+import { onConnection } from "./websocket/player";
 import { initialiseDBConnection, initialiseStateVars } from "./services/database";
 import { initialiseWebSocketServer } from "./services/websockets";
 import { initialsePuppeteerBrowser } from "./services/puppeteer";
@@ -31,14 +31,20 @@ export type StateType = {
 
 
 /*
- * Server setup
+ * Initialise server & routes
  */
+const osPlatform = platform();
+const aliveMessage = `The server is running on port ${PORT}, on platform ${osPlatform}.`;
 const app = express();
 app.use(cors());
 app.use(BodyParser.urlencoded({ extended: false }));
 app.use(BodyParser.json());
 app.use(express.static(path.join(__dirname, "../public")));
-const osPlatform = platform();
+app.use("/youtube", youtubeRouter);
+app.get("/", (req, res) => res.status(200).send({ message: aliveMessage }));
+app.get("/player/:videoId", (req, res) => res.sendFile(path.join(__dirname, "../public", "player.html")));
+
+
 let db: Database | undefined;
 
 
@@ -56,14 +62,11 @@ const state: StateType = {
   playerVolume: PLAYER_VOLUME_DEFAULT,
   queue: [],
   logs: []
-}
-
-
-const aliveMessage = `The server is running on port ${PORT}, on platform ${osPlatform}.`;
+};
 
 
 /*
- * Initialise server endpoints, puppeteer instance and player state.
+ * Initialise player
  */
 (async () => {
   db = await initialiseDBConnection();
@@ -75,15 +78,18 @@ const aliveMessage = `The server is running on port ${PORT}, on platform ${osPla
   state.logs = logs;
 
 })();
-app.get("/", (req, res) => res.status(200).send({ message: aliveMessage }));
-app.get("/player/:videoId", (req, res) => res.sendFile(path.join(__dirname, "../public", "player.html")));
-app.use("/youtube", youtubeRouter);
+
 
 
 /*
  * Start the server
  */
 const server = app.listen(PORT, () => console.log(aliveMessage));
-const io = initialiseWebSocketServer(server);
-io.on("connection", (socket) => db && onSocketConnection(io, socket, db, state));
 server.on("error", console.error);
+
+
+/*
+ * Initialise event handlers
+ */
+const io = initialiseWebSocketServer(server);
+io.on("connection", (socket) => db && onConnection(io, socket, db, state));
