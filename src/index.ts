@@ -80,7 +80,6 @@ const state: StateType = {
 })();
 
 
-
 /*
  * Start the server
  */

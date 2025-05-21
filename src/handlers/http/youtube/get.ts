@@ -12,7 +12,7 @@ import { AxiosResponse } from "axios";
  * 
  * @returns {Video} The the formatted results from the api.
  */
-export async function getYoutubeSearch(req: Request, res: Response) {
+export async function getYoutubeSearchResults(req: Request, res: Response) {
   const { val, limit } = req.query as { val: string; limit?: string };
 
   if (!val) {
