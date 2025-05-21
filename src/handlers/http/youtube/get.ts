@@ -1,10 +1,10 @@
 import { Request, Response } from "express";
-import { YoutubeAPI } from "../services/youtube";
+import { YoutubeAPI } from "../../../services/youtube";
 import { AxiosResponse } from "axios";
 
 
 /**
- * Returns the first 20 search results and their content detaisl from the youtube API.
+ * Returns the first 20 search results and their content details from the youtube API.
  * 
  * @param req Express request query parms containing the `searchQuery` and limit number.
  * @param res Express response parm.
@@ -12,7 +12,7 @@ import { AxiosResponse } from "axios";
  * 
  * @returns {Video} The the formatted results from the api.
  */
-export async function handleSearchVideos(req: Request, res: Response) {
+export async function getYoutubeSearchResults(req: Request, res: Response) {
   const { val, limit } = req.query as { val: string; limit?: string };
 
   if (!val) {

@@ -1,16 +1,14 @@
-import { SOCKET_EVENT_KEYS } from "../../constants";
+import { SOCKET_EVENT_KEYS } from "../constants";
 import { Socket, Server as WsServer } from "socket.io";
 import { Database } from "sqlite3";
 import { StateType } from "index";
-import { handleAddToQueue, handleClearQueue, handleDeleteFromQueue, handlePlayNextFromQueue, handlePlayPause, handlePlayVideo, handleProgressChange, handleVolumeChange } from "./handlers";
+import { handleAddToQueue, handleClearQueue, handleDeleteFromQueue, handlePlayNextFromQueue, handlePlayPause, handlePlayVideo, handleProgressChange, handleVolumeChange } from "../handlers/websocket/player/functions";
 
 
 /**
  * Handles all socket events.
- * @param socket The current socket instance.
- * @param io The current socket server.
  */
-export function onSocketConnection(io: WsServer, socket: Socket, db: Database, state: StateType) {
+export function onConnection(io: WsServer, socket: Socket, db: Database, state: StateType) {
 
   /**
    * Send the current state of the player to the newly connect client.
