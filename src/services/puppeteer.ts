@@ -1,6 +1,5 @@
-import { IFRAME_SELECTOR, PAUSE_TOOLTIP_SELECTOR, PLAY_BUTTON_SELECTOR, PLAY_TOOLTIP_SELECTOR, PLAYBACK_ERROR_CONTENT_CONTAINER, PLAYER_CHECK_VIDEO_INTERVAL, PLAYER_PROGRESS_SLIDER_BOUNDING_WIDTH, PLAYER_SLIDER_LEVEL_OFFSET, PLAYER_URL, PLAYER_VOLUME_SLIDER_BOUNDING_WIDTH, SOCKET_EVENT_KEYS, TIME_CURRENT_SELECTOR, TIME_DURATION_SELECTOR, TIMELINE_SELECTOR, VOLUME_BUTTON_SELECTOR, VOLUME_SLIDER_CONTAINER_SELECTOR } from "../constants";
+import { IFRAME_SELECTOR, PAUSE_TOOLTIP_SELECTOR, PLAY_BUTTON_SELECTOR, PLAY_TOOLTIP_SELECTOR, PLAYBACK_ERROR_CONTENT_CONTAINER, PLAYER_CHECK_VIDEO_INTERVAL, PLAYER_PROGRESS_SLIDER_BOUNDING_WIDTH, PLAYER_SLIDER_LEVEL_OFFSET, PLAYER_URL, PLAYER_VOLUME_SLIDER_BOUNDING_WIDTH, TIME_CURRENT_SELECTOR, TIME_DURATION_SELECTOR, TIMELINE_SELECTOR, VOLUME_BUTTON_SELECTOR, VOLUME_SLIDER_CONTAINER_SELECTOR } from "../constants";
 import puppeteer, { Frame, Page } from "puppeteer";
-import { Server as WsServer } from "socket.io";
 import { formatPlayerTimeStringToSeconds } from "../utils";
 import { StateType } from "index";
 
@@ -41,7 +40,7 @@ type PlayVideoReturnType<T extends boolean> = {
  * Closes any previous player pages and opens a new player page with the supplied `videoId`.
  * @returns The newly created page and player iframe or null if an error occurs.
  */
-export async function playVideo(io: WsServer, videoId: string, state: StateType): Promise<PlayVideoReturnType<boolean>> {
+export async function playVideo(videoId: string, state: StateType): Promise<PlayVideoReturnType<boolean>> {
   if (!state.browser) {
     // io.emit(SOCKET_EVENT_KEYS.error, "No browser found. Refresh and try again.");
     // return null;
@@ -55,9 +54,6 @@ export async function playVideo(io: WsServer, videoId: string, state: StateType)
       }
     }
   }
-
-  state.isLoading = true;
-  io.emit(SOCKET_EVENT_KEYS.isLoading, state.isLoading);
 
   try {
     /*
@@ -140,8 +136,7 @@ export async function playVideo(io: WsServer, videoId: string, state: StateType)
         console.error(`Unable to set initial player volume to: ${state.playerVolume}%.`)
       }
 
-      state.currentVideoTime = 0;
-      io.emit(SOCKET_EVENT_KEYS.currentVideoTime, state.currentVideoTime);
+
 
       if (htmlJsonButton.includes(PLAY_TOOLTIP_SELECTOR)) {
         await playButton.click(); // if a video is unlisted than this can fail if the selector was present prior to the Youtube block overlay appearing
@@ -192,9 +187,6 @@ export async function playVideo(io: WsServer, videoId: string, state: StateType)
         callingFunction: "playVideo"
       }
     }
-  } finally {
-    state.isLoading = false;
-    io.emit(SOCKET_EVENT_KEYS.isLoading, state.isLoading);
   }
 }
 
