@@ -3,6 +3,7 @@
 
 <head>
   <meta charset="UTF-8">
+  <link rel="icon" href="/favicon.ico" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <link rel="stylesheet" href="/styles.css">
   <title>Player</title>
@@ -38,13 +39,15 @@
     const videoId = getVideoIdFromPath();
 
     // Set the iframe source to embed the YouTube video
-    if (!videoId) alert('Video ID is missing.') 
-    else {
+    if (!videoId) {
+      alert('Video ID is missing.');
+    } else {
 
       // 2. This code loads the IFrame Player API code asynchronously.
       var tag = document.createElement('script');
 
-      tag.src = "http://www.youtube.com/iframe_api";
+
+      tag.src = "https://www.youtube.com/iframe_api";
       var firstScriptTag = document.getElementsByTagName('script')[0];
       firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
 
@@ -52,14 +55,18 @@
       //    after the API code downloads.
       var player;
       function onYouTubeIframeAPIReady() {
+        // Dynamically get the current origin to ensure it matches
+        const currentOrigin = window.location.protocol + "//" + window.location.host;
+
         player = new YT.Player('player', {
           height: '390',
           // do not change the width of the player here without first updating the 'PLAYER_PROGRESS_SLIDER_BOUNDING_WIDTH' constant.
           width: '640',
           videoId: videoId,
           playerVars: {
-            origin: "http://localhost:3001",
-            'playsinline': 1
+            origin: currentOrigin,
+            playsinline: 1,
+            enablejsapi: 1
           },
           events: {
             'onReady': onPlayerReady
