@@ -75,7 +75,7 @@ export const functionWrapper = (fn: Function, params?: any[]): Function => {
 /**
  * Parses an error into a string. Prioritizes the stack message if available. Otherwise, fallbacks to message.
  * 
- * @param err Error object
+ * @param err Error object to parse.
  * @returns String representation of the provided error obj.
  */
 export function parseErrorForDB(err: any) {
