@@ -34,7 +34,6 @@ export async function initialiseDBConnection(): Promise<Database> {
 
 
 type InitialisedStateVarsReturn = {
-  // history: HistoryVideo[];
   queue: Video[];
   logs: EntryLog[];
 }
