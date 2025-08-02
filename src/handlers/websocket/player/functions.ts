@@ -257,11 +257,7 @@ export async function handlePlayVideo(db: Database, io: WsServer, state: StateTy
     }
 
     await handleNewLogEntry(db, io, state, "error", updatedHistory.successState.callingFunction, updatedHistory.successState.stackTrace);
-    // return;
   }
-
-  // state.history = updatedHistory.videos;
-  // io.emit(SOCKET_EVENT_KEYS.history, state.history);
 }
 
 

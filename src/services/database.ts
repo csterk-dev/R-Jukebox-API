@@ -50,18 +50,6 @@ type InitialisedStateVarsReturn = {
  * @throws If all state retrievals fail, an error is thrown with stack traces.
  */
 export async function initialiseStateVars(db: Database): Promise<InitialisedStateVarsReturn> {
-  // const historyRes = await getHistoryItems(db);
-  // if (!historyRes.successState.success) {
-  //   const getHistoryEntry: NewEntryLog = {
-  //     type: "error",
-  //     stackTrace: historyRes.successState.stackTrace,
-  //     callingFunction: historyRes.successState.callingFunction
-  //   }
-  //   const updatedLogsRes = await updateLogEntries(db, getHistoryEntry);
-  //   if (!updatedLogsRes.successState.success) console.error(`Failed to update logs with recent error from ${updatedLogsRes.successState.callingFunction}`);
-  // }
-
-
   const queueRes = await getQueueItems(db);
   if (!queueRes.successState.success) {
     const getQueueEntry: NewEntryLog = {
@@ -86,9 +74,7 @@ export async function initialiseStateVars(db: Database): Promise<InitialisedStat
   }
 
 
-  // if (!historyRes.successState.success && !queueRes.successState.success && !logsRes.successState.success) {
   if (!queueRes.successState.success && !logsRes.successState.success) {
-    // \n${historyRes.successState.stackTrace}
     throw new Error(
       `Failed to retrieve all state variables from the database. 
       \nPlease check DB connection and try again. 
@@ -111,39 +97,6 @@ type HistoryReturn = {
   successState: DbActionAcknowledgement;
 }
 
-
-
-// /**
-//  * Gets all history videos.
-//  * @returns An array of history items or error state object if an error occured.
-//  */
-// export async function getHistoryItems(db: Database): Promise<HistoryReturn> {
-//   try {
-//     const history = await getHistory(db);
-
-//     return {
-//       videos: history,
-//       successState: { success: true }
-//     }
-
-//   } catch (err: any) {
-//     console.error("getHistoryItems:", "Something went wrong getting the recently played videos.\n", err);
-//     //   if (io && incomingClientId) {
-//     //     io.to(incomingClientId).emit(SOCKET_EVENT_KEYS.error, "Something went wrong getting the history.");
-//     //   }
-//     //   return null;
-//     // }
-//     return {
-//       videos: [],
-//       successState: {
-//         success: false,
-//         errorMessage: "Something went wrong getting the recently played videos",
-//         stackTrace: err,
-//         callingFunction: "getHistoryItems"
-//       }
-//     }
-//   }
-// }
 
 /**
  * Adds the provided new video to the history and returns the updated history.
@@ -460,38 +413,6 @@ export function getHistoryItems(db: Database, limit: number, offset: number, sea
     });
   });
 }
-
-// /**
-//  * Gets the all videos in the history table up to the 30 days ago. Throws an error if the operation fails.
-//  */
-// function getHistory(db: Database) {
-//   const date30DaysAgo = dayjs().subtract(30, "days");
-//   const query = `SELECT * from history WHERE playedAt >= '${date30DaysAgo.format()}' ORDER BY playedAt DESC`;
-
-//   return new Promise<HistoryVideo[]>((resolve, reject) => {
-
-//     db.all<HistoryVideo>(query, (err, rows) => {
-//       if (err) reject(err);
-
-//       const parsedRows = rows.map(v => {
-//         const thumbnails = JSON.parse(v.thumbnails as unknown as string);
-
-//         return {
-//           channelId: v.channelId,
-//           channelTitle: v.channelTitle,
-//           duration: v.duration,
-//           publishedAt: v.publishedAt,
-//           playedAt: v.playedAt,
-//           playedDate: v.playedDate,
-//           thumbnails,
-//           title: v.title,
-//           videoId: v.videoId
-//         }
-//       })
-//       resolve(parsedRows);
-//     })
-//   })
-// }
 
 
 /**
