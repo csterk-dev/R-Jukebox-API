@@ -1,6 +1,6 @@
 import { IFRAME_SELECTOR, PAUSE_TOOLTIP_SELECTOR, PLAY_BUTTON_SELECTOR, PLAY_TOOLTIP_SELECTOR, PLAYBACK_ERROR_CONTENT_CONTAINER, PLAYER_CHECK_VIDEO_INTERVAL, PLAYER_PROGRESS_SLIDER_BOUNDING_WIDTH, PLAYER_SLIDER_LEVEL_OFFSET, PLAYER_URL, PLAYER_VOLUME_SLIDER_BOUNDING_WIDTH, TIME_CURRENT_SELECTOR, TIME_DURATION_SELECTOR, TIMELINE_SELECTOR, VOLUME_BUTTON_SELECTOR, VOLUME_SLIDER_CONTAINER_SELECTOR } from "../constants";
 import puppeteer, { Frame, Page } from "puppeteer";
-import { formatPlayerTimeStringToSeconds, parseErrorForDB } from "../utils";
+import { formatPlayerTimeStringToSeconds } from "../utils";
 import { StateType } from "index";
 
 /**
@@ -168,7 +168,7 @@ export async function playVideo(videoId: string, state: StateType): Promise<Play
         successState: {
           success: false,
           errorMessage: "Something went wrong finding the Youtube video.",
-          stackTrace: parseErrorForDB(err),
+          stackTrace: err,
           callingFunction: "playVideo"
         }
       }
@@ -183,7 +183,7 @@ export async function playVideo(videoId: string, state: StateType): Promise<Play
       successState: {
         success: false,
         errorMessage: "An error occured accessing the browser",
-        stackTrace: parseErrorForDB(err),
+        stackTrace: err,
         callingFunction: "playVideo"
       }
     }
@@ -242,7 +242,7 @@ export async function togglePlayingState(iFrame: Frame, isPlayingState: boolean)
       success: false,
       errorMessage: `Something went wrong ${isPlayingState ? "resuming" : "pausing"} the video`,
       callingFunction: "togglePlayingState",
-      stackTrace: parseErrorForDB(err)
+      stackTrace: err
     }
   }
 }
@@ -357,7 +357,7 @@ export async function checkForEndOfVideo(iFrame: Frame): Promise<CheckForEndOfVi
       status: "error",
       playerState: null,
       callingFunction: "checkForEndOfVideo",
-      stackTrace: parseErrorForDB(error)
+      stackTrace: error
     };
   }
 }
@@ -395,7 +395,7 @@ export async function adjustPlayerVolume(currentPage: Page, iFrame: Frame, level
     return {
       success: false,
       errorMessage: "An error occured adjusting the player volume",
-      stackTrace: parseErrorForDB(err),
+      stackTrace: err,
       callingFunction: "adjustPlayerVolume"
     }
   }
@@ -415,6 +415,7 @@ export async function adjustPlayerProgress(currentPage: Page, iFrame: Frame, dur
     const exitCode = await setPlayerProgress(currentPage, iFrame, durationSeconds, newTime);
     if (exitCode === 1) {
       console.error("adjustPlayerProgress:", "Cannot find progress bounding box.");
+      // io.to(incomingClientId).emit(SOCKET_EVENT_KEYS.error, "Cannot find progress bounding box.");
       return {
         success: false,
         errorMessage: "Cannot find progress bounding box",
@@ -427,10 +428,12 @@ export async function adjustPlayerProgress(currentPage: Page, iFrame: Frame, dur
 
   } catch (err: any) {
     console.error("adjustPlayerProgress:", "An error occured adjusting the player progress.\n", err);
+    // io.to(incomingClientId).emit(SOCKET_EVENT_KEYS.error, "An error occured adjusting the player progress.");
+    // return 1;
     return {
       success: false,
       errorMessage: "An error occured adjusting the player progress",
-      stackTrace: parseErrorForDB(err),
+      stackTrace: err,
       callingFunction: "adjustPlayerProgress"
     }
   }

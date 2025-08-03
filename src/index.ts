@@ -11,7 +11,6 @@ import { initialiseWebSocketServer } from "./services/websockets";
 import { initialsePuppeteerBrowser } from "./services/puppeteer";
 import { PLAYER_VOLUME_DEFAULT, PORT } from "./constants";
 import { Database } from "sqlite3";
-import { historyRouter } from "./routes/history/router";
 
 
 export type StateType = {
@@ -20,6 +19,7 @@ export type StateType = {
   currentPage: Page | null;
   currentVideo: Video | undefined;
   currentVideoTime: number | undefined;
+  history: Video[];
   isLoading: boolean;
   isPlaying: boolean;
   isIntervalRunning: boolean;
@@ -41,7 +41,6 @@ app.use(BodyParser.urlencoded({ extended: false }));
 app.use(BodyParser.json());
 app.use(express.static(path.join(__dirname, "../public")));
 app.use("/youtube", youtubeRouter);
-app.use("/history", historyRouter);
 app.get("/", (req, res) => res.status(200).send({ message: aliveMessage }));
 app.get("/player/:videoId", (req, res) => res.sendFile(path.join(__dirname, "../public", "player.html")));
 
@@ -55,6 +54,7 @@ const state: StateType = {
   currentPage: null,
   currentVideo: undefined,
   currentVideoTime: undefined,
+  history: [],
   isLoading: false,
   isPlaying: false,
   isIntervalRunning: false,
@@ -70,12 +70,10 @@ const state: StateType = {
  */
 (async () => {
   db = await initialiseDBConnection();
-  // Set the db instance on the app object so it can be accessed by handlers
-  app.set("db", db);
-
   state.browser = await initialsePuppeteerBrowser(osPlatform);
-  const { queue, logs } = await initialiseStateVars(db);
+  const { history, queue, logs } = await initialiseStateVars(db);
 
+  state.history = history;
   state.queue = queue;
   state.logs = logs;
 
@@ -93,5 +91,4 @@ server.on("error", console.error);
  * Initialise event handlers
  */
 const io = initialiseWebSocketServer(server);
-// You might still pass db to websocket handlers if they need it
 io.on("connection", (socket) => db && onConnection(io, socket, db, state));
