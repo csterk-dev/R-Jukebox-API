@@ -5,7 +5,7 @@ import { formatISO8601ToSeconds } from "../../../utils";
 import { Database } from "sqlite3";
 import { addToBottomOfQueue, addToTopOfQueue, clearQueue, deleteQueueItem, getNextQueueItem, updateHistoryItems, updateLogEntries } from "../../../services/database";
 import { StateType } from "index";
-import { isPlayerReady } from "./utils";
+import { clearState, handleNewLogEntry, isPlayerReady } from "./utils";
 
 
 /** Handles playing/pausing of the video player. */
@@ -257,17 +257,13 @@ export async function handlePlayVideo(db: Database, io: WsServer, state: StateTy
     }
 
     await handleNewLogEntry(db, io, state, "error", updatedHistory.successState.callingFunction, updatedHistory.successState.stackTrace);
-    return;
   }
-
-  state.history = updatedHistory.videos;
-  io.emit(SOCKET_EVENT_KEYS.history, state.history);
 }
 
 
 
 /** Function that checks the current time and duration while the current video is playing to determine if the video has ended. */
-export function handleCheckForEndOfVideo(io: WsServer, db: Database, state: StateType) {
+function handleCheckForEndOfVideo(io: WsServer, db: Database, state: StateType) {
   try {
 
     // Ensure we clear any previous intervals prior to spawning a new one for the new video.
@@ -394,41 +390,4 @@ export function handleCheckForEndOfVideo(io: WsServer, db: Database, state: Stat
       io.emit(SOCKET_EVENT_KEYS.logs, state.logs);
     });
   }
-}
-
-
-/** Resets the state values and updates any connected clients. */
-function clearState(io: WsServer, state: StateType) {
-  console.log("ClearState:", "State reset.");
-  clearInterval(state.checkVideoInterval);
-
-  state.currentVideo = undefined;
-  state.currentVideoTime = 0;
-  state.isPlaying = false;
-  io.emit(SOCKET_EVENT_KEYS.currentVideo, state.currentVideo);
-  io.emit(SOCKET_EVENT_KEYS.currentVideoTime, state.currentVideoTime);
-  io.emit(SOCKET_EVENT_KEYS.isPlaying, state.isPlaying);
-}
-
-
-/** 
- * Logs the provided information and updates the state var.
- * If the operation fails, then the player is notified via the global error state var instead. 
- */
-async function handleNewLogEntry(db: Database, io: WsServer, state: StateType, errorType: NewEntryLog["type"], callingFunction: NewEntryLog["callingFunction"], stackTrace: NewEntryLog["stackTrace"]): Promise<void> {
-  const newLogEntry: NewEntryLog = {
-    type: errorType,
-    stackTrace,
-    callingFunction
-  }
-
-  const updatedLogsRes = await updateLogEntries(db, newLogEntry);
-
-  if (!updatedLogsRes.successState.success) {
-    io.emit(SOCKET_EVENT_KEYS.error, `Failed to update logs with recent ${errorType} from: '${callingFunction}'`);
-    return
-  }
-
-  state.logs = updatedLogsRes.logs;
-  io.emit(SOCKET_EVENT_KEYS.logs, state.logs);
 }
