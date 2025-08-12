@@ -10,6 +10,6 @@ import asyncHandler from "express-async-handler"
 export const historyRouter = express.Router();
 
 /*
- * Initialise the history endpoints
+ * Initialise the history endpoints.
  */
 historyRouter.get("/latest", asyncHandler(async (req: Request, res: Response) => getHistory(req, res)));
