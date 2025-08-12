@@ -126,7 +126,7 @@ module.exports = {
     "jsx-quotes": ["error", "prefer-double"],
     "lines-around-comment": "off",
     "multiline-comment-style": ["off"],
-    "newline-per-chained-call": "error",
+    "newline-per-chained-call": ["error", { ignoreChainWithDepth: 3 }],
     "no-async-promise-executor": "warn",
     "no-await-in-loop": "warn",
     "no-case-declarations": "error",

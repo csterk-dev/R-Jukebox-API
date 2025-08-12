@@ -70,3 +70,34 @@ export const formatPlayerTimeStringToSeconds = (timeStr: string) => {
 export const functionWrapper = (fn: Function, params?: any[]): Function => {
   return () => fn.apply(this, params);
 }
+
+
+/**
+ * Parses an error into a string. Prioritizes the stack message if available. Otherwise, fallbacks to message.
+ * 
+ * @param err Error object to parse.
+ * @returns String representation of the provided error obj.
+ */
+export function parseErrorForDB(err: any) {
+  let stackTraceValue: string | null = null;
+
+  if (err instanceof Error) {
+    stackTraceValue = err.stack || err.message; 
+
+  } else if (typeof err === "string") {
+    stackTraceValue = err;
+
+  } else {
+    
+    // For any other unexpected types, try to stringify or just represent them
+    try {
+      stackTraceValue = JSON.stringify(err, null, 2);
+
+    } catch (e) {
+      // Fallback to String conversion
+      stackTraceValue = String(err); 
+    }
+  }
+
+  return stackTraceValue;
+}
