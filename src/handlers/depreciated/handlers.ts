@@ -20,14 +20,14 @@ async function HandleGetContentDetails(req: Request, res: Response) {
   }
 
 
-  const detailsRes = await YoutubeAPI.getVideosContentDetails(ids);
+  const detailsRes = await YoutubeAPI.getVideosContentDetailsStatistics(ids);
 
   if (detailsRes.status !== 200) {
     res.status(detailsRes.status).send({ message: "Failed to get results from youtube API" });
     return;
   }
 
-  const videoContentDetails: GetVideosContentDetailsResult = detailsRes.data.items;
+  const videoContentDetails: YTVideos.ContentDetailsAndStatisticsResult = detailsRes.data.items;
 
   res.status(200).json(videoContentDetails);
 }
