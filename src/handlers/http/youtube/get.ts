@@ -10,7 +10,6 @@ import { z } from "zod";
 const getYoutubeSearchResults_Query = z.object({
   q: z.string(),
   type: z
-    // .string()
     .enum(["video"]),
   // .optional()
   // .default("video")
@@ -41,28 +40,36 @@ const getYoutubeSearchResults_Query = z.object({
  * @returns {Video} The the formatted results from the api.
  */
 export async function getYoutubeSearchResults(req: Request, res: Response) {
-  // const { val, limit } = req.query as { val: string; limit?: string };
-  const result = getYoutubeSearchResults_Query.safeParse(req.query);
+  const request = getYoutubeSearchResults_Query.safeParse(req.query);
 
-  if (!result.success) {
-    console.error("getYoutubeSearchResults", "Zod Error", result.error.message);
+  if (!request.success) {
+    console.error("getYoutubeSearchResults", "Zod Error", request.error.message);
     res.status(400).json({ message: "Invalid history request body." });
     return;
   }
 
 
-  const searchRes: AxiosResponse<YTSearch.VideoResult> = await YoutubeAPI.searchVideos(result.data.q, [result.data.type], result.data.regionCode, result.data.pageSize, result.data.pageToken);
+  let searchRes: AxiosResponse<YTSearch.VideoResult>;
+  let detailsRes: AxiosResponse<YTVideos.ContentDetailsAndStatisticsResult>;
 
-  if (searchRes.status !== 200) {
+  try {
+    searchRes = await YoutubeAPI.searchVideos(request.data.q, [request.data.type], request.data.regionCode, request.data.pageSize, request.data.pageToken);
+
+    if (searchRes.status !== 200) {
+      res.status(400).send({ message: "Failed to get search from youtube API" });
+      return;
+    }
+    const videoIds = searchRes.data.items.map(i => i.id.videoId);
+
+    detailsRes = await YoutubeAPI.getVideosContentDetailsStatistics(videoIds.toString());
+
+    if (detailsRes.status !== 200) {
+      res.status(detailsRes.status).send({ message: "Failed to get content details from youtube API" });
+      return;
+    }
+  } catch (error) {
+    console.error("YouTube API Error:", error);
     res.status(400).send({ message: "Failed to get search from youtube API" });
-    return;
-  }
-  const videoIds = searchRes.data.items.map(i => i.id.videoId);
-
-  const detailsRes: AxiosResponse<YTVideos.ContentDetailsAndStatisticsResult> = await YoutubeAPI.getVideosContentDetailsStatistics(videoIds.toString());
-
-  if (detailsRes.status !== 200) {
-    res.status(detailsRes.status).send({ message: "Failed to get content details from youtube API" });
     return;
   }
 
@@ -83,7 +90,7 @@ export async function getYoutubeSearchResults(req: Request, res: Response) {
   // Filter out undefined entries before sending the response
   const filteredVideos: Video[] = combinedResults.filter(v => v !== undefined) as Video[];
 
-  const resData: SearchResult = {
+  const resData: SearchResultPage = {
     nextPageToken: searchRes.data.nextPageToken,
     prevPageToken: searchRes.data.prevPageToken,
     resultsPerPage: searchRes.data.pageInfo.resultsPerPage,

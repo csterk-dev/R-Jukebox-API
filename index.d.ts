@@ -84,7 +84,7 @@ declare namespace YTSearch {
 }
 
 /** The returned formatted videos for the current search term. */
-declare interface SearchResult {
+declare interface SearchResultPage {
   prevPageToken: string | undefined;
   nextPageToken: string | undefined;
   totalResults: number;
