@@ -1,96 +1,95 @@
-/**
- * API Get Videos ContentDetails return structure.
- */
-declare interface GetVideosContentDetailsResult {
-  kind: string,
-  etag: string,
+
+type BaseYTReponse<ItemType> = {
+  kind: string;
+  etag: string;
   pageInfo: {
-    totalResults: number,
-    resultsPerPage: number
+    totalResults: number;
+    resultsPerPage: number;
   },
-  items: GetVideosContentDetailsItem[]
+  items: ItemType[];
 }
 
-/**
- * API Search Video return structure.
- */
-declare interface SearchVideoResult {
-  kind: string,
-  etag: string,
-  nextPageToken: string,
-  regionCode: string,
-  pageInfo: {
-    totalResults: number,
-    resultsPerPage: number
-  },
-  items: SearchVideoItem[]
+type BaseYTSnippet = {
+
 }
 
-/**
- * Type used for the item array return from the GET /videos&part=contentDetails youtube endpoint.
- */
-declare interface GetVideosContentDetailsItem {
-  kind: string,
-  etag: string,
-  id: string,
-  contentDetails: {
-    /** E.g. "PT1H1M4S" = 1 hour, 1 mins, 4 secs */
-    duration: string,
-    dimension: string,
-    definition: string,
-    caption: false,
-    licensedContent: boolean,
-    regionRestriction: {
-      blocked: string[]
+declare namespace YTVideos {
+  /** Combined YT API response type for both statistics and contentDetails parts. */
+  declare interface ContentDetailsAndStatisticsResult extends BaseYTReponse<ContentDetailsAndStatistics> { }
+
+  declare interface ContentDetailsAndStatisticsItem {
+    kind: string;
+    etag: string;
+    id: string;
+    contentDetails: {
+      /** E.g. "PT1H1M4S" = 1 hour, 1 mins, 4 secs */
+      duration: string;
+      dimension: string;
+      definition: string;
+      caption: false;
+      licensedContent: boolean;
+      regionRestriction: {
+        blocked: string[];
+        allowed: string[];
+      },
+      contentRating: {},
+      // projection default is "rectangular"
+      projection: "rectangular";
     },
-    contentRating: {},
-    // projection default is "rectangular"
-    projection: string
+    statistics: {
+      viewCount: string;
+      likeCount: string;
+      favoriteCount: string;
+      commentCount: string;
+    }
   }
 }
 
-/**
- * Type used for the item array returned from the GET /search&type=video youtube endpoint.
- */
-declare interface SearchVideoItem {
-  kind: string,
-  etag: string,
-  id: {
-    kind: string,
-    videoId: string
-  },
-  snippet: {
-    publishedAt: string,
-    channelId: string,
-    title: string,
-    description: string,
-    thumbnails: Thumbnails,
-    channelTitle: string,
-    liveBroadcastContent: string,
-    /** Use `publishedAt` instead. */
-    publishTime: string
+
+declare namespace YTSearch {
+
+  /** YT API search Video return structure. */
+  declare interface VideoResult {
+    kind: string;
+    etag: string;
+    prevPageToken?: string;
+    nextPageToken?: string;
+    regionCode: string;
+    pageInfo: {
+      totalResults: number;
+      resultsPerPage: number;
+    },
+    items: SnippetItem[];
+  }
+
+  declare interface SnippetItem {
+    kind: string;
+    etag: string;
+    id: {
+      kind: string;
+      videoId: string;
+    },
+    snippet: {
+      publishedAt: string;
+      channelId: string;
+      title: string;
+      description: string;
+      thumbnails: Thumbnails;
+      channelTitle: string;
+      liveBroadcastContent: string;
+      /** Use `publishedAt` instead. */
+      publishTime: string;
+    }
   }
 }
 
-/**
- * Structure of the thumbnail object within the youtube video snippet
- */
-type Thumbnails = {
-  default: {
-    url: string,
-    width: number,
-    height: number
-  },
-  medium: {
-    url: string
-    width: number,
-    height: number
-  },
-  high: {
-    url: string,
-    width: number,
-    height: number
-  }
+/** The returned formatted videos for the current search term. */
+declare interface SearchResultPage {
+  prevPageToken: string | undefined;
+  nextPageToken: string | undefined;
+  totalResults: number;
+  resultsPerPage: number;
+  videos: Video[];
 }
 
 /**
@@ -106,6 +105,24 @@ declare interface Video {
   videoId: string;
 }
 
+
+type Thumbnails = {
+  default: {
+    url: string;
+    width: number;
+    height: number;
+  },
+  medium: {
+    url: string;
+    width: number;
+    height: number;
+  },
+  high: {
+    url: string;
+    width: number;
+    height: number;
+  }
+}
 
 declare interface HistoryVideo extends Video {
   playedAt: string;
@@ -149,13 +166,13 @@ type WSAcknowledgement = {
 }
 
 
-type ConditionalAcknowledgement<T extends boolean> 
-= WSAcknowledgement 
-& (T extends true 
-  // If success is true, exclude stackTrace and callingFunction
-    ? { success: true } 
+type ConditionalAcknowledgement<T extends boolean>
+  = WSAcknowledgement
+  & (T extends true
+    // If success is true, exclude stackTrace and callingFunction
+    ? { success: true }
     // If success is false, include them
-    : { success: false } & Pick<NewEntryLog, "callingFunction" | "stackTrace"> 
+    : { success: false } & Pick<NewEntryLog, "callingFunction" | "stackTrace">
   );
 
 type DbActionAcknowledgement = ConditionalAcknowledgement<boolean>;

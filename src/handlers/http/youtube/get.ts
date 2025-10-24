@@ -1,6 +1,33 @@
 import { Request, Response } from "express";
 import { YoutubeAPI } from "../../../services/youtube";
 import { AxiosResponse } from "axios";
+import { z } from "zod";
+
+
+// const typeEnum = z.enum(["video", "channel", "playlist"]);
+
+
+const getYoutubeSearchResults_Query = z.object({
+  q: z.string(),
+  type: z
+    .enum(["video"]),
+  // .optional()
+  // .default("video")
+  // .transform(val => val.split(","))
+  // .refine(
+  //   arr => arr.every((item) => typeEnum.safeParse(item).success),
+  //   { message: "Invalid type parameter. Allowed: video, channel, playlist" }
+  // )
+  // // ensures it's a tuple of enums, not string[]
+  // .transform(arr => arr as [z.infer<typeof typeEnum>, ...z.infer<typeof typeEnum>[]]),
+  regionCode: z.string().default("AU"),
+  pageSize: z.coerce
+    .number()
+    .min(1)
+    .max(50)
+    .default(20),
+  pageToken: z.string().optional()
+});
 
 
 /**
@@ -13,38 +40,36 @@ import { AxiosResponse } from "axios";
  * @returns {Video} The the formatted results from the api.
  */
 export async function getYoutubeSearchResults(req: Request, res: Response) {
-  const { val, limit } = req.query as { val: string; limit?: string };
+  const request = getYoutubeSearchResults_Query.safeParse(req.query);
 
-  if (!val) {
-    res.status(400).json({ message: "No search value provided" });
+  if (!request.success) {
+    console.error("getYoutubeSearchResults", "Zod Error", request.error.message);
+    res.status(400).json({ message: "Invalid history request body." });
     return;
   }
 
 
-  let parsedLimit = 20;
-  if (limit && limit !== "undefined") {
-    parsedLimit = parseInt(limit);
-  }
+  let searchRes: AxiosResponse<YTSearch.VideoResult>;
+  let detailsRes: AxiosResponse<YTVideos.ContentDetailsAndStatisticsResult>;
 
-  /*
-   * TODO
-   * Implement backend caching to sql lite instance:
-   * - Hash the search query -> use as PK
-   *    - Store search results and timestamp of when it was searched
-   */
+  try {
+    searchRes = await YoutubeAPI.searchVideos(request.data.q, [request.data.type], request.data.regionCode, request.data.pageSize, request.data.pageToken);
 
-  const searchRes: AxiosResponse<SearchVideoResult> = await YoutubeAPI.searchVideos(val, parsedLimit);
+    if (searchRes.status !== 200) {
+      res.status(400).send({ message: "Failed to get search from youtube API" });
+      return;
+    }
+    const videoIds = searchRes.data.items.map(i => i.id.videoId);
 
-  if (searchRes.status !== 200) {
+    detailsRes = await YoutubeAPI.getVideosContentDetailsStatistics(videoIds.toString());
+
+    if (detailsRes.status !== 200) {
+      res.status(detailsRes.status).send({ message: "Failed to get content details from youtube API" });
+      return;
+    }
+  } catch (error) {
+    console.error("YouTube API Error:", error);
     res.status(400).send({ message: "Failed to get search from youtube API" });
-    return;
-  }
-  const videoIds = searchRes.data.items.map(i => i.id.videoId);
-
-  const detailsRes: AxiosResponse<GetVideosContentDetailsResult> = await YoutubeAPI.getVideosContentDetails(videoIds.toString());
-
-  if (detailsRes.status !== 200) {
-    res.status(detailsRes.status).send({ message: "Failed to get content details from youtube API" });
     return;
   }
 
@@ -60,9 +85,17 @@ export async function getYoutubeSearchResults(req: Request, res: Response) {
       title: video.snippet.title,
       videoId: video.id.videoId
     }
-  })
+  });
 
   // Filter out undefined entries before sending the response
-  const filteredResults: Video[] = combinedResults.filter(result => result !== undefined) as Video[];
-  res.status(200).json(filteredResults);
+  const filteredVideos: Video[] = combinedResults.filter(v => v !== undefined) as Video[];
+
+  const resData: SearchResultPage = {
+    nextPageToken: searchRes.data.nextPageToken,
+    prevPageToken: searchRes.data.prevPageToken,
+    resultsPerPage: searchRes.data.pageInfo.resultsPerPage,
+    totalResults: searchRes.data.pageInfo.totalResults,
+    videos: filteredVideos
+  }
+  res.status(200).json(resData);
 }
