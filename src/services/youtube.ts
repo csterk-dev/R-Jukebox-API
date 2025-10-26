@@ -22,8 +22,13 @@ export const YoutubeAPI = {
    * 
    * @remarks Quota cost = `100 credits`.
    */
-  async searchVideos(query: string, maxResults: number) {
-    return await YOUTUBE_CLIENT.get(`/search?key=${YOUTUBE_API_KEY}&q=${query}&type=video&part=snippet&maxResults=${maxResults}`);
+  async searchVideos(q: string, type: string[], regionCode: string, maxResults: number, pageToken?: string) {
+    const part = "snippet";
+
+    let query = `/search?key=${YOUTUBE_API_KEY}&q=${q}&type=${type}&part=${part}&regionCode=${regionCode}&maxResults=${maxResults}`;
+    if (pageToken) query = `${query}&pageToken=${pageToken}`;
+
+    return await YOUTUBE_CLIENT.get(query);
   },
 
   /**
@@ -32,7 +37,7 @@ export const YoutubeAPI = {
    * 
    * @remarks Quota cost = `1 credit.`
    */
-  async getVideosContentDetails(videoIds: string) {
+  async getVideosContentDetailsStatistics(videoIds: string) {
     return await YOUTUBE_CLIENT.get(`/videos?key=${YOUTUBE_API_KEY}&part=contentDetails&id=${videoIds}`);
   }
 }
