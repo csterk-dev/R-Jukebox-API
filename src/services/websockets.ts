@@ -9,12 +9,13 @@ import { Server } from "http";
  * @returns {Socket.IO} The Socket.IO server instance.
  */
 export function initialiseWebSocketServer(server: Server) {
-  
+
   const s = new WsServer(server, {
     // Enable cors and connection state recovery 
     connectionStateRecovery: {},
     cors: {
-      origin: "*"
+      origin: "*",
+      methods: ["GET", "POST"]
     }
   });
   s.on("error", console.log);
