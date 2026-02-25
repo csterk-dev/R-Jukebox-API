@@ -2,6 +2,12 @@
 
 A Node.js backend server that powers the R-Jukebox application, providing real-time YouTube video playback control, queue management, and state synchronization across multiple clients. The server uses Puppeteer to automate browser-based video playback and maintains persistent state through SQLite.
 
+Read the [behind the scenes case study](https://www.csterk.dev/projects/jukebox) at [csterk.dev](https://www.csterk.dev/)!
+
+Checkout the Front-end repository [here](https://github.com/csterk-dev/R-Jukebox).
+
+![R-Jukebox](public/images/github/jukebox-frame.png)
+
 ## 📑 Table of Contents
 
 - [R-Jukebox API](#r-jukebox-api)
