@@ -1,9 +1,6 @@
 import { YOUTUBE_API_URL } from "../constants";
 import axios from "axios";
 
-const YOUTUBE_API_KEY = process.env.YOUTUBE_API_KEY ?? "";
-
-
 const YOUTUBE_CLIENT = axios.create({
   baseURL: YOUTUBE_API_URL,
   headers: {
@@ -23,9 +20,10 @@ export const YoutubeAPI = {
    * @remarks Quota cost = `100 credits`.
    */
   async searchVideos(q: string, type: string[], regionCode: string, maxResults: number, pageToken?: string) {
+    const key = process.env.YOUTUBE_API_KEY ?? "";
     const part = "snippet";
 
-    let query = `/search?key=${YOUTUBE_API_KEY}&q=${q}&type=${type}&part=${part}&regionCode=${regionCode}&maxResults=${maxResults}`;
+    let query = `/search?key=${key}&q=${q}&type=${type}&part=${part}&regionCode=${regionCode}&maxResults=${maxResults}`;
     if (pageToken) query = `${query}&pageToken=${pageToken}`;
 
     return await YOUTUBE_CLIENT.get(query);
@@ -38,6 +36,7 @@ export const YoutubeAPI = {
    * @remarks Quota cost = `1 credit.`
    */
   async getVideosContentDetailsStatistics(videoIds: string) {
-    return await YOUTUBE_CLIENT.get(`/videos?key=${YOUTUBE_API_KEY}&part=contentDetails&id=${videoIds}`);
+    const key = process.env.YOUTUBE_API_KEY ?? "";
+    return await YOUTUBE_CLIENT.get(`/videos?key=${key}&part=contentDetails&id=${videoIds}`);
   }
 }

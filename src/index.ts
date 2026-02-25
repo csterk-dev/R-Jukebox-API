@@ -2,6 +2,7 @@ import cors from "cors";
 import express from "express";
 import { platform } from "os";
 import path from "path";
+import dotenv from "dotenv";
 import BodyParser from "body-parser";
 import { Browser, Frame, Page } from "puppeteer";
 import { youtubeRouter } from "./routes/youtube/router";
@@ -13,6 +14,8 @@ import { PLAYER_VOLUME_DEFAULT, PORT } from "./constants";
 import { Database } from "sqlite3";
 import { historyRouter } from "./routes/history/router";
 
+// Initialise env
+dotenv.config();
 
 export type StateType = {
   browser: Browser | undefined;
