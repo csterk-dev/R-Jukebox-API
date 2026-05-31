@@ -110,7 +110,10 @@
       }
 
       function onPlayerStateChange(event) {
-        console.log("Player state changed:", event.data);
+        window.jukeboxPlayerState = event.data;
+        if (typeof window.notifyPlayerStateChange === "function") {
+          window.notifyPlayerStateChange(event.data);
+        }
       }
 
       function onPlayerError(event) {

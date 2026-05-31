@@ -23,6 +23,7 @@ export type StateType = {
   currentPage: Page | null;
   currentVideo: Video | undefined;
   currentVideoTime: number | undefined;
+  isBuffering: boolean;
   isLoading: boolean;
   isPlaying: boolean;
   isIntervalRunning: boolean;
@@ -57,6 +58,7 @@ const state: StateType = {
   currentPage: null,
   currentVideo: undefined,
   currentVideoTime: undefined,
+  isBuffering: false,
   isLoading: false,
   isPlaying: false,
   isIntervalRunning: false,

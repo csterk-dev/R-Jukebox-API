@@ -1,4 +1,4 @@
-import { adjustPlayerProgress, adjustPlayerVolume, checkForEndOfVideo, playVideo, togglePlayingState } from "../../../services/puppeteer";
+import { adjustPlayerProgress, adjustPlayerVolume, checkForEndOfVideo, playVideo, togglePlayingState, YT_PLAYER_STATE } from "../../../services/puppeteer";
 import { PLAYER_CHECK_VIDEO_INTERVAL, SOCKET_EVENT_KEYS } from "../../../constants";
 import { Server as WsServer } from "socket.io";
 import { formatISO8601ToSeconds } from "../../../utils";
@@ -204,7 +204,17 @@ export async function handlePlayVideo(db: Database, io: WsServer, state: StateTy
   state.isLoading = true;
   io.emit(SOCKET_EVENT_KEYS.isLoading, state.isLoading);
 
-  const res = await playVideo(req.video.videoId, state);
+  state.isBuffering = false;
+  io.emit(SOCKET_EVENT_KEYS.isBuffering, false);
+
+  const onPlayerStateChange = (ytState: number) => {
+    const buffering = ytState === YT_PLAYER_STATE.BUFFERING;
+    if (state.isBuffering === buffering) return;
+    state.isBuffering = buffering;
+    io.emit(SOCKET_EVENT_KEYS.isBuffering, buffering);
+  };
+
+  const res = await playVideo(req.video.videoId, state, onPlayerStateChange);
   if (!res.playerElements || !res.successState.success) {
     if (resCallback) {
       resCallback({
@@ -338,6 +348,12 @@ function handleCheckForEndOfVideo(io: WsServer, db: Database, state: StateType) 
         /*
          * Video is still playing. Update the current time and broadcast.
          */
+        const { isBuffering } = checkForEndOfVideoRes.playerState;
+        if (state.isBuffering !== isBuffering) {
+          state.isBuffering = isBuffering;
+          io.emit(SOCKET_EVENT_KEYS.isBuffering, isBuffering);
+        }
+
         state.currentVideoTime = checkForEndOfVideoRes.playerState.currentTime;
         io.emit(SOCKET_EVENT_KEYS.currentVideoTime, state.currentVideoTime);
       }

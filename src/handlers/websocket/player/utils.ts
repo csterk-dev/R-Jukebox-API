@@ -21,9 +21,11 @@ export function clearState(io: WsServer, state: StateType) {
   state.currentVideo = undefined;
   state.currentVideoTime = 0;
   state.isPlaying = false;
+  state.isBuffering = false;
   io.emit(SOCKET_EVENT_KEYS.currentVideo, state.currentVideo);
   io.emit(SOCKET_EVENT_KEYS.currentVideoTime, state.currentVideoTime);
   io.emit(SOCKET_EVENT_KEYS.isPlaying, state.isPlaying);
+  io.emit(SOCKET_EVENT_KEYS.isBuffering, false);
 }
 
 

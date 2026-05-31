@@ -18,6 +18,7 @@ export function onConnection(io: WsServer, socket: Socket, db: Database, state: 
       io.to(incomingClientId).emit(SOCKET_EVENT_KEYS.currentVideo, state.currentVideo);
       io.to(incomingClientId).emit(SOCKET_EVENT_KEYS.currentVideoTime, state.currentVideoTime);
       io.to(incomingClientId).emit(SOCKET_EVENT_KEYS.isPlaying, state.isPlaying);
+      io.to(incomingClientId).emit(SOCKET_EVENT_KEYS.isBuffering, state.isBuffering);
       io.to(incomingClientId).emit(SOCKET_EVENT_KEYS.playerVolume, state.playerVolume);
       io.to(incomingClientId).emit(SOCKET_EVENT_KEYS.queue, state.queue);
       io.to(incomingClientId).emit(SOCKET_EVENT_KEYS.logs, state.logs);

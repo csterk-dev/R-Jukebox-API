@@ -3,7 +3,7 @@ import puppeteer, { Page } from "puppeteer";
 import { parseErrorForDB } from "../utils";
 import { StateType } from "index";
 
-const YT_PLAYER_STATE = {
+export const YT_PLAYER_STATE = {
   ENDED: 0,
   PLAYING: 1,
   PAUSED: 2,
@@ -83,7 +83,11 @@ type PlayVideoReturnType<T extends boolean> = {
  * Closes any previous player pages and opens a new player page with the supplied `videoId`.
  * @returns The newly created page or null if an error occurs.
  */
-export async function playVideo(videoId: string, state: StateType): Promise<PlayVideoReturnType<boolean>> {
+export async function playVideo(
+  videoId: string,
+  state: StateType,
+  onPlayerStateChange?: (ytState: number) => void
+): Promise<PlayVideoReturnType<boolean>> {
   if (!state.browser) {
     return {
       playerElements: null,
@@ -112,6 +116,11 @@ export async function playVideo(videoId: string, state: StateType): Promise<Play
 
     const url = `${PLAYER_URL}/${videoId}`;
     const currentPage = await state.browser.newPage();
+
+    if (onPlayerStateChange) {
+      await currentPage.exposeFunction("notifyPlayerStateChange", onPlayerStateChange);
+    }
+
     await currentPage.goto(url);
 
     try {
@@ -264,6 +273,7 @@ type CheckForEndOfVideoReturn =
     playerState: {
       hasEnded: boolean;
       currentTime: number;
+      isBuffering: boolean;
     };
   }
   | {
@@ -325,7 +335,8 @@ export async function checkForEndOfVideo(currentPage: Page): Promise<CheckForEnd
         status: "success",
         playerState: {
           hasEnded: true,
-          currentTime: 0
+          currentTime: 0,
+          isBuffering: false
         }
       };
     }
@@ -338,7 +349,8 @@ export async function checkForEndOfVideo(currentPage: Page): Promise<CheckForEnd
         status: "success",
         playerState: {
           hasEnded: true,
-          currentTime: 0
+          currentTime: 0,
+          isBuffering: false
         }
       };
     }
@@ -347,7 +359,8 @@ export async function checkForEndOfVideo(currentPage: Page): Promise<CheckForEnd
       status: "success",
       playerState: {
         hasEnded: false,
-        currentTime: Math.floor(currentTime)
+        currentTime: Math.floor(currentTime),
+        isBuffering: state === YT_PLAYER_STATE.BUFFERING
       }
     };
 

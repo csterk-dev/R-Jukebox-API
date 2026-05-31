@@ -399,6 +399,7 @@ Runs `yarn build` followed by `yarn start` in sequence. Useful for development.
 | `queue` | `Video[]` | Current queue state |
 | `logs` | `EntryLog[]` | System logs |
 | `is-loading` | `boolean` | Video loading state |
+| `is-buffering` | `boolean` | YouTube player is buffering (thumbnail overlay on clients) |
 | `error` | `string` | Error message |
 
 ### REST Endpoints

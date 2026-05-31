@@ -46,6 +46,8 @@ export const SOCKET_EVENT_KEYS = {
   history: "history",
   /** If the player is loading. */
   isLoading: "is-loading",
+  /** If the YouTube player is buffering. */
+  isBuffering: "is-buffering",
   /** Gets the value from the isPlaying boolean. */
   isPlaying: "is-playing",
   /** Gets the player logs. */
