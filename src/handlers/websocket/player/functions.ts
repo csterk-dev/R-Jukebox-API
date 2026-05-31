@@ -1,4 +1,4 @@
-import { adjustPlayerProgress, adjustPlayerVolume, checkForEndOfVideo, playVideo, togglePlayingState } from "../../../services/puppeteer";
+import { adjustPlayerProgress, adjustPlayerVolume, checkForEndOfVideo, playVideo, togglePlayingState, YT_PLAYER_STATE } from "../../../services/puppeteer";
 import { PLAYER_CHECK_VIDEO_INTERVAL, SOCKET_EVENT_KEYS } from "../../../constants";
 import { Server as WsServer } from "socket.io";
 import { formatISO8601ToSeconds } from "../../../utils";
@@ -19,8 +19,8 @@ export async function handlePlayPause(db: Database, io: WsServer, state: StateTy
     return;
   }
 
-  if (state.playerFrame) {
-    const res = await togglePlayingState(state.playerFrame, req.isPlaying);
+  if (state.currentPage) {
+    const res = await togglePlayingState(state.currentPage, req.isPlaying);
 
     if (!res.success) {
       resCallback({
@@ -51,8 +51,8 @@ export async function handleVolumeChange(db: Database, io: WsServer, state: Stat
     return;
   }
 
-  if (state.playerVolume !== req.volumeLevel && (state.currentPage && state.playerFrame)) {
-    const res = await adjustPlayerVolume(state.currentPage, state.playerFrame, req.volumeLevel)
+  if (state.playerVolume !== req.volumeLevel && state.currentPage) {
+    const res = await adjustPlayerVolume(state.currentPage, req.volumeLevel)
     if (!res.success) {
       resCallback({
         success: false,
@@ -83,8 +83,8 @@ export async function handleProgressChange(db: Database, io: WsServer, state: St
     return;
   }
 
-  if (state.currentVideoTime !== req.timestamp && (state.currentPage && state.playerFrame && state.currentVideo)) {
-    const res = await adjustPlayerProgress(state.currentPage, state.playerFrame, formatISO8601ToSeconds(state.currentVideo.duration), req.timestamp)
+  if (state.currentVideoTime !== req.timestamp && state.currentPage && state.currentVideo) {
+    const res = await adjustPlayerProgress(state.currentPage, formatISO8601ToSeconds(state.currentVideo.duration), req.timestamp)
     if (!res.success) {
       resCallback({
         success: false,
@@ -204,7 +204,17 @@ export async function handlePlayVideo(db: Database, io: WsServer, state: StateTy
   state.isLoading = true;
   io.emit(SOCKET_EVENT_KEYS.isLoading, state.isLoading);
 
-  const res = await playVideo(req.video.videoId, state);
+  state.isBuffering = false;
+  io.emit(SOCKET_EVENT_KEYS.isBuffering, false);
+
+  const onPlayerStateChange = (ytState: number) => {
+    const buffering = ytState === YT_PLAYER_STATE.BUFFERING;
+    if (state.isBuffering === buffering) return;
+    state.isBuffering = buffering;
+    io.emit(SOCKET_EVENT_KEYS.isBuffering, buffering);
+  };
+
+  const res = await playVideo(req.video.videoId, state, onPlayerStateChange);
   if (!res.playerElements || !res.successState.success) {
     if (resCallback) {
       resCallback({
@@ -223,7 +233,6 @@ export async function handlePlayVideo(db: Database, io: WsServer, state: StateTy
   
   console.log("Socket:", "Setting currentVideo", req.video.videoId);
   state.currentPage = res.playerElements.currentPage;
-  state.playerFrame = res.playerElements.iFrame;
   
   state.currentVideoTime = 0;
   io.emit(SOCKET_EVENT_KEYS.currentVideoTime, state.currentVideoTime);
@@ -273,7 +282,7 @@ function handleCheckForEndOfVideo(io: WsServer, db: Database, state: StateType) 
      * Check interval beings 
      */
     state.checkVideoInterval = setInterval(async () => {
-      if (!state.currentPage || !state.currentVideo || !state.isPlaying || !state.playerFrame || state.isIntervalRunning || state.isLoading) {
+      if (!state.currentPage || !state.currentVideo || !state.isPlaying || state.isIntervalRunning || state.isLoading) {
         return;
       }
 
@@ -286,46 +295,32 @@ function handleCheckForEndOfVideo(io: WsServer, db: Database, state: StateType) 
        * causing two videos to be popped from the queue at once and resulting in the first video being lost.
        */
       state.isIntervalRunning = true;
-      const checkForEndOfVideoRes = await checkForEndOfVideo(state.playerFrame);
+      const checkForEndOfVideoRes = await checkForEndOfVideo(state.currentPage);
 
 
       // Handle any player errors
       if (checkForEndOfVideoRes.status !== "success") {
-        const { status, stackTrace, callingFunction } = checkForEndOfVideoRes;
+        const { stackTrace, callingFunction } = checkForEndOfVideoRes;
 
-        // Silently ignore false cases but still log them
-        if (status === "detached-frame-error") {
-          await handleNewLogEntry(db, io, state, "info", callingFunction, stackTrace);
+        io.emit(SOCKET_EVENT_KEYS.error, "An error occured with the player while checking its current progress. Check the 'Player Logs' for more info.");
+        clearState(io, state);
 
-        } else if (status === "error") {
-          /*
-           * If an error occured, reset, update state, and attempt to load the next video (if any) from the queue.
-           */
-          io.emit(SOCKET_EVENT_KEYS.error, "An error occured with the player while checking its current progress. Check the 'Player Logs' for more info.");
-          clearState(io, state);
+        await handleNewLogEntry(db, io, state, "error", callingFunction, stackTrace);
 
-          await handleNewLogEntry(db, io, state, "error", callingFunction, stackTrace);
+        const { nextVideo, updatedQueue, successState: nextItemSuccessState } = await getNextQueueItem(db);
 
+        if (!nextItemSuccessState.success) {
+          io.emit(SOCKET_EVENT_KEYS.error, "Something went wrong getting the next video");
+          await handleNewLogEntry(db, io, state, "error", nextItemSuccessState.callingFunction, nextItemSuccessState.stackTrace);
 
-          // Load the next video (if any) from the queue
-          const { nextVideo, updatedQueue, successState: nextItemSuccessState } = await getNextQueueItem(db);
-
-          // Log any retrieval errors that might have occured
-          if (!nextItemSuccessState.success) {
-            io.emit(SOCKET_EVENT_KEYS.error, "Something went wrong getting the next video");
-            await handleNewLogEntry(db, io, state, "error", nextItemSuccessState.callingFunction, nextItemSuccessState.stackTrace);
-
-            state.isIntervalRunning = false;
-            return;
-          }
-
-          state.queue = updatedQueue;
-          io.emit(SOCKET_EVENT_KEYS.queue, state.queue);
-
-          // Queue isn't empty so play the next video
-          if (nextVideo) await handlePlayVideo(db, io, state, { video: nextVideo });
-
+          state.isIntervalRunning = false;
+          return;
         }
+
+        state.queue = updatedQueue;
+        io.emit(SOCKET_EVENT_KEYS.queue, state.queue);
+
+        if (nextVideo) await handlePlayVideo(db, io, state, { video: nextVideo });
 
       } else if (checkForEndOfVideoRes.playerState.hasEnded) {
         /*
@@ -353,6 +348,12 @@ function handleCheckForEndOfVideo(io: WsServer, db: Database, state: StateType) 
         /*
          * Video is still playing. Update the current time and broadcast.
          */
+        const { isBuffering } = checkForEndOfVideoRes.playerState;
+        if (state.isBuffering !== isBuffering) {
+          state.isBuffering = isBuffering;
+          io.emit(SOCKET_EVENT_KEYS.isBuffering, isBuffering);
+        }
+
         state.currentVideoTime = checkForEndOfVideoRes.playerState.currentTime;
         io.emit(SOCKET_EVENT_KEYS.currentVideoTime, state.currentVideoTime);
       }

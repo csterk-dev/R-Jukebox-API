@@ -9,7 +9,6 @@ import { updateLogEntries } from "../../../services/database";
 export function isPlayerReady(state: StateType) {
   if (!state.browser) return "No browser found. Refresh and try again.";
   if (!state.currentPage) return "No player page found.";
-  if (!state.playerFrame) return "No player frame found.";
   if (!state.currentVideo) return "No current video found.";
   return null
 }
@@ -22,9 +21,11 @@ export function clearState(io: WsServer, state: StateType) {
   state.currentVideo = undefined;
   state.currentVideoTime = 0;
   state.isPlaying = false;
+  state.isBuffering = false;
   io.emit(SOCKET_EVENT_KEYS.currentVideo, state.currentVideo);
   io.emit(SOCKET_EVENT_KEYS.currentVideoTime, state.currentVideoTime);
   io.emit(SOCKET_EVENT_KEYS.isPlaying, state.isPlaying);
+  io.emit(SOCKET_EVENT_KEYS.isBuffering, false);
 }
 
 
