@@ -69,20 +69,4 @@ export const SOCKET_EVENT_KEYS = {
 /*
  * Puppeteer vars 
  */
-export const PLAYBACK_ERROR_CONTENT_CONTAINER = "ytp-error-content-wrap-reason";
 export const IFRAME_SELECTOR = `iframe[id="player"]`;
-export const PAUSE_TOOLTIP_SELECTOR = `data-title-no-tooltip="Pause"`;
-export const PLAY_BUTTON_SELECTOR = ".ytp-play-button";
-export const PLAYER_VOLUME_SLIDER_BOUNDING_WIDTH = 40;
-export const PLAYER_PROGRESS_SLIDER_BOUNDING_WIDTH = 616;
-export const PLAYER_SLIDER_LEVEL_OFFSET = 15;
-export const PLAY_TOOLTIP_SELECTOR = `data-title-no-tooltip="Play"`;
-export const TIME_CURRENT_SELECTOR = ".ytp-time-current";
-export const TIME_DURATION_SELECTOR = ".ytp-time-duration";
-export const TIMELINE_SELECTOR = ".ytp-progress-list";
-export const VOLUME_BUTTON_SELECTOR = '.ytp-mute-button';
-export const VOLUME_SLIDER_CONTAINER_SELECTOR = '.ytp-volume-slider';
-
-/** Selector notes: */
-// class="ytp-ad-skip-button-modern"
-// <div class="ytp-error-content-wrap-reason"><span>An error occurred. Please try again later. (Playback ID: buUDvEaZ4oDNuqR8) <br><a class="ytp-error-link" href="//support.google.com/youtube/?p=player_error1&amp;hl=en-GB" target="_blank">Learn More</a></span></div>

@@ -47,7 +47,7 @@ Checkout the Front-end repository [here](https://github.com/csterk-dev/R-Jukebox
   - [🔧 How It Works](#-how-it-works)
   - [🐛 Troubleshooting](#-troubleshooting)
   - [🧩 Development Trivia](#-development-trivia)
-    - [Handling Detached Frames Gracefully](#handling-detached-frames-gracefully)
+    - [Handling Detached Frames Gracefully (Resolved)](#handling-detached-frames-gracefully-resolved)
       - [The Problem](#the-problem)
       - [The Solution](#the-solution)
   - [📝 Learn More](#-learn-more)
@@ -61,7 +61,7 @@ R-Jukebox API is the backend component of a collaborative YouTube video jukebox 
 
 ### Key Features
 
-- 🎬 **Automated Video Playback** - Uses Puppeteer to control YouTube's embedded player in a headless browser
+- 🎬 **Automated Video Playback** - Uses Puppeteer and the YouTube IFrame Player API bridge to control embedded playback in Chromium
 - 📋 **Queue Management** - Persistent queue storage with add/remove/reorder operations
 - 🔄 **Real-time Synchronization** - WebSocket-based state sync across all connected clients
 - 📜 **Playback History** - Tracks and stores previously played videos with timestamps
@@ -83,6 +83,8 @@ R-Jukebox API is the backend component of a collaborative YouTube video jukebox 
 * **[Axios](https://axios-http.com/)** - HTTP client for YouTube Data API
 * **[TypeScript](https://www.typescriptlang.org/)** - Type-safe JavaScript
 * **[Zod](https://zod.dev/)** - Schema validation for API requests
+* **[YouTube IFrame Player API](https://developers.google.com/youtube/iframe_api_reference)** - Programmatic play/pause, seek, and volume control via `player.html` bridge
+
 * **[Day.js](https://day.js.org/)** - Date manipulation and formatting
 
 ---
@@ -92,16 +94,47 @@ R-Jukebox API is the backend component of a collaborative YouTube video jukebox 
 ### Core Components
 
 **State Management**
-- Global state object maintains current video, queue, playback status, browser instance, and player frame references
+- Global state object maintains current video, queue, playback status, browser instance, and a Puppeteer `currentPage` reference to the host player tab
 - State is synchronized across all WebSocket clients in real-time
 - Queue and history persist to SQLite database
 
 **Video Playback**
-- Puppeteer launches a headless Chromium browser (or visible browser on Linux with Chromium)
-- Opens YouTube embedded player in an iframe
-- Interacts with player controls (play/pause, volume, progress) via DOM manipulation
-- Monitors video progress every 5 seconds to detect end-of-video
-- Automatically loads and plays next queued video when current video ends
+
+Puppeteer does not scrape YouTube DOM inside the cross-origin embed. Control flows through a host-page bridge exposed by `public/player.html`:
+
+```mermaid
+flowchart LR
+  Client[WebSocket client] --> WS[websocket/player.ts]
+  WS --> Handlers[handlers/websocket/player/functions.ts]
+  Handlers --> Puppeteer[src/services/puppeteer.ts]
+  Puppeteer --> Page["Chromium page /player/:videoId"]
+  Page --> Bridge["window.jukeboxControl on player.html"]
+  Bridge --> YTAPI["YT.Player IFrame API"]
+  YTAPI --> Embed["YouTube embed iframe"]
+```
+
+- Puppeteer launches Chromium (visible on Linux/Raspberry Pi via `/usr/bin/chromium-browser`) with `--autoplay-policy=no-user-gesture-required`
+- Opens the local player route `/player/:videoId`, which serves `player.html`
+- `player.html` loads the [YouTube IFrame Player API](https://developers.google.com/youtube/iframe_api_reference) with `enablejsapi: 1` and exposes:
+  - `window.jukeboxPlayer` — the `YT.Player` instance
+  - `window.jukeboxPlayerReady` — set when the player is ready
+  - `window.jukeboxPlayerError` — YouTube error code from `onError`
+  - `window.jukeboxControl` — wrappers for `play`, `pause`, `seek`, `setVolume`, `unMute`, `getState`, `getCurrentTime`, `getDuration`
+- Puppeteer waits for `jukeboxPlayerReady`, then calls bridge methods via `page.evaluate()` (not iframe DOM selectors)
+- Progress is polled every 5 seconds using `getCurrentTime()` / `getState()`; emitted `current-video-time` values are whole seconds
+- Automatically loads and plays the next queued video when the current video ends
+
+This bridge replaced an earlier approach that clicked `.ytp-*` controls inside the iframe. YouTube's embed UI change (`ytm-watch-player-controls`) removed those stable selectors.
+
+**Bridge control mapping**
+
+| Action | Bridge / API method |
+|--------|-------------------|
+| Play / pause | `jukeboxControl.play()` / `pause()` + `getState()` |
+| Seek | `jukeboxControl.seek(seconds)` |
+| Volume | `jukeboxControl.setVolume(0–100)` + `unMute()` |
+| Progress poll | `getCurrentTime()` / `getDuration()` / `getState()` |
+| Playback errors | `jukeboxPlayerError` (read via `getJukeboxPlayerError()`) |
 
 **Database Schema**
 - `history` - Stores played videos with metadata (title, channel, thumbnails, timestamps)
@@ -436,7 +469,7 @@ src/
 
 build/                   # Compiled JavaScript output
 data/                    # SQLite database storage
-public/                  # Static files (player.html, assets)
+public/                  # Static files; player.html hosts the YouTube IFrame API bridge (jukeboxControl)
 ```
 
 ---
@@ -453,12 +486,12 @@ public/                  # Static files (player.html, assets)
 2. **Video Playback Flow**
    - Client sends `set-current-video` event with video data
    - Server closes any existing player pages
-   - Opens new browser page with YouTube embedded player
-   - Waits for player iframe to load
-   - Interacts with play button to start video
-   - Sets initial volume
-   - Updates state and broadcasts to all clients
-   - Starts interval to monitor video progress
+   - Opens a new browser page at `http://localhost:3001/player/{videoId}`
+   - Waits for `iframe[id="player"]` (YouTube embed loaded)
+   - Waits for `window.jukeboxPlayerReady` on the host page
+   - Calls `unMute()`, `setVolume()`, and `playVideo()` via `window.jukeboxControl` through `page.evaluate()`
+   - Stores `currentPage` in state and broadcasts to all clients
+   - Starts a 5-second interval calling `checkForEndOfVideo(currentPage)` to sync progress and detect end-of-video
 
 3. **Queue Management**
    - Videos added to queue are stored in SQLite with position values
@@ -494,7 +527,9 @@ public/                  # Static files (player.html, assets)
 
 ## 🧩 Development Trivia
 
-### Handling Detached Frames Gracefully
+### Handling Detached Frames Gracefully (Resolved)
+
+> **Resolved (2025/2026):** Playback control no longer uses `iframe.contentFrame()` or YouTube DOM selectors. Puppeteer interacts with the host-page `jukeboxControl` bridge instead, so detached-frame errors during progress polling are no longer applicable. The workaround below is kept for historical context.
 
 During development, a recurring issue was encountered with Puppeteer frame detachment errors that could crash the video monitoring interval.
 
@@ -523,16 +558,16 @@ at Timeout._onTimeout (.../controllers/websocketHandlers.js:133:76)
 
 #### The Solution
 
-The solution involves gracefully handling detached frame errors with a recovery mechanism:
+The solution involved gracefully handling detached frame errors with a recovery mechanism:
 
-1. **Error Detection**: The `checkForEndOfVideo()` function catches detached frame errors and returns a special status (`"detached-frame-error"`) instead of throwing
+1. **Error Detection**: The `checkForEndOfVideo()` function caught detached frame errors and returned a special status (`"detached-frame-error"`) instead of throwing
 
-2. **Graceful Handling**: The error handler distinguishes between detached frame errors and actual playback errors:
-   - Detached frame errors are logged as informational messages (not critical errors)
-   - The monitoring interval continues running without crashing
-   - No state reset occurs, allowing playback to continue
+2. **Graceful Handling**: The error handler distinguished between detached frame errors and actual playback errors:
+   - Detached frame errors were logged as informational messages (not critical errors)
+   - The monitoring interval continued running without crashing
+   - No state reset occurred, allowing playback to continue
 
-**Current Implementation:**
+**Historical implementation (removed from codebase):**
 ```typescript
 // In checkForEndOfVideo()
 if (errMessage.includes("Attempted to use detached Frame")) {
@@ -551,13 +586,16 @@ if (status === "detached-frame-error") {
 }
 ```
 
+**Migration:** Superseded by the IFrame Player API bridge after YouTube changed the embedded player DOM (`ytm-watch-player-controls` replaced classic `.ytp-*` chrome). Progress and controls now use `page.evaluate()` on `window.jukeboxControl` on the same-origin host page.
+
 **Related Issue:**
-This is a known Puppeteer limitation when working with dynamic iframes. See [puppeteer/puppeteer#12423](https://github.com/puppeteer/puppeteer/issues/12423#issuecomment-2106185278) for discussion and potential upstream fixes.
+This was a known Puppeteer limitation when working with dynamic iframes. See [puppeteer/puppeteer#12423](https://github.com/puppeteer/puppeteer/issues/12423#issuecomment-2106185278) for discussion and potential upstream fixes.
 
 ---
 
 ## 📝 Learn More
 
+* [YouTube IFrame Player API](https://developers.google.com/youtube/iframe_api_reference)
 * [Socket.IO Documentation](https://socket.io/docs/v4/)
 * [Puppeteer Documentation](https://pptr.dev/)
 * [Express.js Documentation](https://expressjs.com/)

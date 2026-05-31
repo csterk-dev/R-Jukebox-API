@@ -4,7 +4,7 @@ import { platform } from "os";
 import path from "path";
 import dotenv from "dotenv";
 import BodyParser from "body-parser";
-import { Browser, Frame, Page } from "puppeteer";
+import { Browser, Page } from "puppeteer";
 import { youtubeRouter } from "./routes/youtube/router";
 import { onConnection } from "./websocket/player";
 import { initialiseDBConnection, initialiseStateVars } from "./services/database";
@@ -26,7 +26,6 @@ export type StateType = {
   isLoading: boolean;
   isPlaying: boolean;
   isIntervalRunning: boolean;
-  playerFrame: Frame | null;
   playerVolume: number;
   queue: Video[];
   logs: EntryLog[];
@@ -61,7 +60,6 @@ const state: StateType = {
   isLoading: false,
   isPlaying: false,
   isIntervalRunning: false,
-  playerFrame: null,
   playerVolume: PLAYER_VOLUME_DEFAULT,
   queue: [],
   logs: []

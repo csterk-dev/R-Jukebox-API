@@ -28,57 +28,94 @@
   </div>
 
   <script>
-    // Function to get the videoId from the URL path
+    window.jukeboxPlayer = null;
+    window.jukeboxPlayerReady = false;
+    window.jukeboxPlayerError = null;
+
+    window.jukeboxControl = {
+      play: function() {
+        window.jukeboxPlayer && window.jukeboxPlayer.playVideo();
+      },
+      pause: function() {
+        window.jukeboxPlayer && window.jukeboxPlayer.pauseVideo();
+      },
+      seek: function(seconds) {
+        window.jukeboxPlayer && window.jukeboxPlayer.seekTo(seconds, true);
+      },
+      setVolume: function(volume) {
+        window.jukeboxPlayer && window.jukeboxPlayer.setVolume(volume);
+      },
+      unMute: function() {
+        window.jukeboxPlayer && window.jukeboxPlayer.unMute();
+      },
+      getState: function() {
+        return window.jukeboxPlayer ? window.jukeboxPlayer.getPlayerState() : -1;
+      },
+      getCurrentTime: function() {
+        return window.jukeboxPlayer ? window.jukeboxPlayer.getCurrentTime() : 0;
+      },
+      getDuration: function() {
+        return window.jukeboxPlayer ? window.jukeboxPlayer.getDuration() : 0;
+      }
+    };
+
     function getVideoIdFromPath() {
       const path = window.location.pathname;
-      const pathParts = path.split('/');
+      const pathParts = path.split("/");
       return pathParts[pathParts.length - 1];
     }
 
-    // Get the videoId from the URL path
     const videoId = getVideoIdFromPath();
 
-    // Set the iframe source to embed the YouTube video
     if (!videoId) {
-      alert('Video ID is missing.');
+      alert("Video ID is missing.");
     } else {
-
-      // 2. This code loads the IFrame Player API code asynchronously.
-      var tag = document.createElement('script');
-
+      var tag = document.createElement("script");
 
       tag.src = "https://www.youtube.com/iframe_api";
-      var firstScriptTag = document.getElementsByTagName('script')[0];
+      var firstScriptTag = document.getElementsByTagName("script")[0];
       firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
 
-      // 3. This function creates an <iframe> (and YouTube player)
-      //    after the API code downloads.
       var player;
+
       function onYouTubeIframeAPIReady() {
-        // Dynamically get the current origin to ensure it matches
         const currentOrigin = window.location.protocol + "//" + window.location.host;
 
-        player = new YT.Player('player', {
-          height: '390',
-          // do not change the width of the player here without first updating the 'PLAYER_PROGRESS_SLIDER_BOUNDING_WIDTH' constant.
-          width: '640',
+        player = new YT.Player("player", {
+          height: "390",
+          width: "640",
           videoId: videoId,
           playerVars: {
             origin: currentOrigin,
             playsinline: 1,
-            enablejsapi: 1
+            enablejsapi: 1,
+            controls: 1
           },
           events: {
-            'onReady': onPlayerReady
+            onReady: onPlayerReady,
+            onStateChange: onPlayerStateChange,
+            onError: onPlayerError
           }
         });
+
+        window.jukeboxPlayer = player;
       }
 
-      // 4. The API will call this function when the video player is ready.
       function onPlayerReady(event) {
         console.log("Player is ready");
+        window.jukeboxPlayerReady = true;
+        event.target.unMute();
         event.target.playVideo();
         console.log("Player started");
+      }
+
+      function onPlayerStateChange(event) {
+        console.log("Player state changed:", event.data);
+      }
+
+      function onPlayerError(event) {
+        console.error("Player error:", event.data);
+        window.jukeboxPlayerError = event.data;
       }
     }
   </script>
