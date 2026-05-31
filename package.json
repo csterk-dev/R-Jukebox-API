@@ -1,6 +1,6 @@
 {
   "name": "rpiwebmusicplayerapi",
-  "version": "1.0.0",
+  "version": "3.0.0",
   "description": "Backend API for the R Jukebox (formally raspberry pi web music player app)",
   "main": "build/index.js",
   "scripts": {
